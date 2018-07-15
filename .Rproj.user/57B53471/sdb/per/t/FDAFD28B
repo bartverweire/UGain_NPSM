@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1531639987759.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "FDAFD28B",
+    "lastKnownWriteTime" : 1531640012,
+    "last_content_update" : 1531640012516,
+    "path" : "~/projects/ugain/Examen/Examen/playground.R",
+    "project_path" : "playground.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
