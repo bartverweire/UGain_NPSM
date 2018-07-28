@@ -1,0 +1,343 @@
+---
+title: "Niet-parametrische Statistische Methoden - Examen"
+author: "Bart Verweire"
+date: "2018 M07 27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, include=FALSE}
+library(tidyverse)
+library(knitr)
+```
+
+## Vraag 3
+
+### Voorbereiding: Lognormale verdeling
+
+Voor de lognormale verdeling zullen we een functie definiëren die gebruik maakt van de functie rlnorm. We hadden ook de voorgestelde functie kunnen gebruiken, maar om beter het verband tussen normale en lognormale te begrijpen hebben we ervoor gekozen om de functie rlnorm wat dieper te onderzoeken.
+
+
+```{r, eval=FALSE}
+rlnorm(n, meanlog = 0, sdlog = 1)
+```
+
+Hierin zijn meanlog en sdlog het gemiddelde en de standaardafwijking van de normale verdeling die de  basis vormt voor de lognormale verdeling, d.w.z.
+
+als 
+
+$$X \sim N(\mu, \sigma ^2)$$
+
+dan is 
+
+$$Y = e^X \sim LogN(\mu, \sigma ^2)$$
+
+Hierbij zijn $\mu$ en $\sigma$ de parameters van de normale verdeling. 
+
+Het zou natuurlijk interessanter zijn om deze gemiddelden uit te drukken in functie van gemiddelde en standaardafwijking van de log-normale verdeling zelf.
+
+Als we het gemiddelde en de standaardafwijking van de normale verdeling aanduiden als $\mu_{N}$ en $\sigma_{N}$, dan zijn gemiddelde en standaardafwijking van de lognormale verdeling gegeven door
+
+$$\mu_{L} = e^{\mu_{N} + \frac{\sigma_{N}}{2}}$$
+$$\sigma_{L}^2 = \left( e^{\sigma_{N}^2} - 1 \right)e^{2\mu_{N} + \sigma_{N}^2}$$
+
+Beide formules kunnen herwerkt worden tot
+
+$$
+\begin{eqnarray}
+e^{\mu_{N}} &=& \mu_{L}e^{-{\frac{\sigma_{N}^2}{2}}} \\
+\mu_{N} &=& ln(\mu_{L})-{\frac{\sigma_{N}^2}{2}}
+\end{eqnarray}
+$$
+
+en
+
+$$\sigma_{L}^2 = \left( e^{\sigma_{N}^2} - 1 \right)\mu_{L}^2$$
+
+Dit laat toe om de parameters van de normale distributie te schrijven in functie van deze van de log-normale distributie : 
+
+$$
+\begin{eqnarray}
+e^{\sigma_{N}^2} &=& 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \\
+\sigma_{N} &=& \sqrt{ln\left( 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \right)} \\
+e^{\mu_{N}} &=& \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \\
+\mu_{N} &=& ln\left( \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \right) \\
+\end{eqnarray}
+$$
+
+Aan de hand hiervan definiëren we de volgende functies
+
+```{r}
+# Random generator voor de Log-normale distributie
+rlnorm2 <- function(n, mu = 1, sd = 1) {
+  exp_sdlog_sq <- 1 + sd^2/mu^2
+  sdlog <- sqrt(log(exp_sdlog_sq))
+  meanlog <- log(mu/sqrt(exp_sdlog_sq))
+  
+  rlnorm(n, meanlog, sdlog)
+}
+
+# Density functie voor de Log-normale distributie
+dlnorm2 <- function(n, mu = 1, sd = 1) {
+  exp_sdlog_sq <- 1 + sd^2/mu^2
+  sdlog <- sqrt(log(exp_sdlog_sq))
+  meanlog <- log(mu/sqrt(exp_sdlog_sq))
+  
+  dlnorm(n, meanlog, sdlog)
+}
+```
+
+We kunnen dit testen op een aantal verschillende combinaties voor de parameters $\mu_{L}$ en $\sigma_{L}$.
+Eerst maken we een data frame met verschillende combinaties voor $\mu_{L}$ en $\sigma_{L}$. Dan gebruiken we de functie sapply om de gemiddelde waarden te berekenen voor een sample.
+Als de functie goed gedefinieerd is, moeten de gemeten gemiddelde waarde en standaardafwijking overeenkomen met de waarden van de parameters.
+
+De functie sapply resulteert in een matrix, waarbij de eerste 2 rijen de parameters weergeven, en de laatste 2 rijen de (afgeronde) gemeten waarden.
+
+```{r}
+test.params <- expand.grid(c(1,2,3),c(0.5,1,2))
+
+sapply(1:nrow(test.params), function(i) {
+  mu <- test.params[i,1]
+  sd <- test.params[i,2]
+  test.data <- rlnorm2(100000, mu,sd)
+  list(mu = mu, sd = sd, sample_mu = round(mean(test.data),1), sample_sd = round(sd(test.data),1))
+})
+
+```
+
+De gemeten waarde komt inderdaad overeen met de waarden van de parameters, dus de functie werkt zoals het hoort.
+
+### Monte-Carlo simulatie functie
+
+Er wordt gevraagd om Monte-Carlo simulaties uit te voeren in een aantal verschillende situaties. Hiervoor definiëren we een functie, met volgende parameters (algemener dan in de vraagstelling)
+
+* dist (waarden **norm** of **lnorm**) : Data uit een normale/lognormale verdeling 
+* n.total : totaal aantal samples voor steekproef 1 en steekproef 2 samen
+* sample.ratio (default 1) : verhouding van het aantal samples in steekproef 1 tov. steekproef 2, bv.
+  + n.total = 200, sample.ratio = 3 leidt tot 150 samples in steekproef 1 en 50 in steekproef 2
+  + de default waarde leidt tot een gelijk aantal samples
+* mu : gemiddelde waarde voor beide steekproeven
+* sd : standaardafwijking voor steekproef 1
+* sd.ratio : verhouding van standaardafwijking voor steekproef 1 tov. die van steekproef 2
+  + sd.ratio = 5 betekent $\sigma_{1} = 1$ en $\sigma_{2} = 1/5$
+* test.type (waarden **pooled** of **Welch**) : geeft aan of de t-test gebruik maakt van de "pooled" variantie, of van de Welch benadering voor het aantal vrijheidsgraden.
+* R (default 10000) : aantal Monte-Carlo simulaties in elk scenario
+* alpha (default 0.05) : p-value drempelwaarde
+
+De functie geeft een list terug met daarin de gebruikte (afgeleide) parameterwaarden en de berekende waarde voor de typeI fouten tov. drempelwaarde alpha.
+De list bevat daarnaast ook het laatste paar steekproeven, voor controle.
+
+```{r}
+sim.mctest <- function(dist = c("norm", "lnorm"), 
+                       n.total, 
+                       sample.ratio = 1, 
+                       mu = 1, 
+                       sd = 1, 
+                       sd.ratio = 1,
+                       test.type = c("pooled","Welch"),
+                       R = 10000,
+                       alpha = 0.05) {
+  
+  # calculate sample sizes
+  n1 <- n.total / (1 + 1/sample.ratio)
+  n2 <- n.total / (1 + sample.ratio)
+  
+  test.type <- test.type[1]
+  if(!(test.type %in% c("pooled","Welch"))) {
+    stop(paste("Invalid test type", test.type))
+  }
+  # valid test type
+  t.test.var.equal <- test.type == "pooled"
+  
+  mu1 <- mu
+  mu2 <- mu
+  sd1 <- sd
+  sd2 <- sd / sd.ratio
+  
+  dist <- dist[1]
+  if (!(dist %in% c("norm", "lnorm"))) {
+    stop("invalid distribution")
+  }
+  
+  # valid distribution type
+  if (dist == "norm") {
+    dist.fun <- rnorm
+  } else {
+    dist.fun <- rlnorm2
+  }
+  
+  cnt.typeI <- 0
+  for (i in 1:R) {
+    d1 <- dist.fun(n1, mu1, sd1)
+    d2 <- dist.fun(n2, mu2, sd2)
+    
+    pval <- t.test(d1, d2, var.equal = t.test.var.equal)$p.value
+    if (pval < alpha) {
+      cnt.typeI <- cnt.typeI + 1
+    }
+  }
+  
+  # output a list with all simulation parameters
+  list(
+    n.total = n.total,        # total sample size
+    n1 = n1,      # sample 1 size
+    n2 = n2,      # sample 2 size,
+    dist = dist,  # distribution type
+    test.type = test.type, # test type
+    d1 = d1,      # last d1 sample
+    d2 = d2,      # last d2 sample
+    mu1 = mu1,    
+    mu2 = mu2,
+    sd1 = sd1,
+    sd2 = sd2,
+    typeI.fout.pct = cnt.typeI / R
+  )
+  
+}
+```
+
+
+### Test functie
+Om deze functie te testen definiëren we volgende functie.
+Deze functie resulteert in een ggplot object met daarin de (density) histogrammen van de laatste steekproeven, de theoretische density functie, en de berekende p-value.
+
+
+```{r}
+eval.mctest <- function(test) {
+  plot_data <- rbind(data.frame(sample = "sample 1", x = test$d1), data.frame(sample = "sample 2", x = test$d2))
+  
+  # valid distribution type
+  if (test$dist == "norm") {
+    dist.fun <- dnorm
+  } else {
+    dist.fun <- dlnorm2
+  }
+  
+  dist_data_1 <- tibble(dist = "dist 1", 
+                        x = seq(test$mu1 - 3*test$sd1, test$mu1 + 3 * test$sd1, by = 0.1),
+                        y = dist.fun(x, test$mu1, test$sd1))
+  dist_data_2 <- tibble(dist = "dist 2", 
+                        x = seq(test$mu2 - 3*test$sd2, test$mu2 + 3 * test$sd2, by = 0.1),
+                        y = dist.fun(x, test$mu2, test$sd2))
+  
+  display_range <- c(min(c(min(dist_data_1$x), min(dist_data_2$x))),
+                     max(c(max(dist_data_1$x), max(dist_data_2$x))))
+  
+  p <- ggplot(plot_data, aes(x)) +
+    geom_histogram(aes(y = ..density.., fill = sample), position = "dodge", binwidth = 0.1, stat) +
+    geom_line(aes(x, y, color = dist), data = dist_data_1) +
+    geom_line(aes(x, y, color = dist), data = dist_data_2) +
+    coord_cartesian(xlim = display_range) +
+    ggtitle(paste("Test type: ", test$test.type, "\np-value", test$typeI.fout.pct))
+  
+  p
+}
+```
+
+### Tests
+
+We voeren een aantal tests uit, met grote getallen, omdat in dit geval de berekende p-waarde de verwachte p-waarde van 0.05 goed moet benaderen.
+
+Een eerste test, met de normale verdeling 
+
+```{r}
+test1 <- sim.mctest(n.total = 20000, 
+                    sample.ratio = 1, 
+                    dist = "norm", 
+                    mu = 1, 
+                    sd = 1, 
+                    sd.ratio = 1,
+                    test.type = "Welch",
+                    R = 1000,
+                    alpha = 0.05)
+eval.mctest(test1)
+
+```
+
+En een tweede test, met de log-normale verdeling
+
+```{r}
+test2 <- sim.mctest(n.total = 20000, 
+                    sample.ratio = 1, 
+                    dist = "lnorm", 
+                    mu = 1, 
+                    sd = 1, 
+                    sd.ratio = 1,
+                    test.type = "Welch",
+                    R = 1000,
+                    alpha = 0.05)
+eval.mctest(test2)
+
+```
+
+
+```{r}
+test3 <- sim.mctest(n.total = 20000, 
+                    sample.ratio = 1, 
+                    dist = "norm", 
+                    mu = 1, 
+                    sd = 1, 
+                    sd.ratio = 1,
+                    test.type = "pooled",
+                    R = 1000,
+                    alpha = 0.05)
+eval.mctest(test3)
+
+```
+
+En een tweede test, met de log-normale verdeling
+
+```{r}
+test4 <- sim.mctest(n.total = 20000, 
+                    sample.ratio = 1, 
+                    dist = "lnorm", 
+                    mu = 1, 
+                    sd = 1, 
+                    sd.ratio = 1,
+                    test.type = "pooled",
+                    R = 1000,
+                    alpha = 0.05)
+eval.mctest(test4)
+
+```
+
+### Scenario's
+
+Om alle scenario's uit te voeren, bouwen we eerst een data frame op met alle combinaties van voorwaarden : 
+
+```{r}
+params <- expand.grid(
+  dist = c("norm","lnorm"),
+  sd.ratio = c(1, 5),
+  n.total = c(20, 200),
+  sample.ratio = c(1, 1/3),
+  test.type = c("pooled","Welch")
+)
+```
+
+En via lapply kunnen we de Monte-Carlo simulatie toepassen met de parameters in dit data frame.
+
+```{r}
+sims <- sapply(1:nrow(params), function(i) {
+  p <- params[i,]
+  
+  p.val <- sim.mctest(n.total = p$n.total, 
+             sample.ratio = p$sample.ratio, 
+             dist = p$dist, 
+             mu = 1, 
+             sd = 1, 
+             sd.ratio = p$sd.ratio,
+             test.type = p$test.type,
+             R = 1000
+            )$typeI.fout.pct
+})
+
+result <- params
+result$p.val <- sims
+```
+```{r, echo=FALSE}
+kable(result, caption = "Monte-Carlo simulation for 32 Scenarios")
+```
