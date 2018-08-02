@@ -171,4 +171,110 @@ Deze test zal aanduiden of er een significant verschil is in het gemiddeld aanta
 Aan de hand van de Hodges-Lehman schatter kunnen we dan bekijken wat het verschil is in het aantal herinnerde woorden tussen de verschillende subsets.
 
 
+#### Voorbereiding - data splitsen
+
+We kunnen de Kruskal-Wallis en Wilcoxon tests uitvoeren op verschillende subsets. Daarvoor definiëren we de subsets als volgt : 
+
+```{r}
+memory.split.all <- lapply(split(memory, list(memory$Age, memory$Process)), '[[', "Words")
+memory.split.age <- lapply(split(memory, memory$Age), '[[', "Words")
+memory.split.process <- lapply(split(memory, memory$Process), '[[', "Words")
+```
+
+#### Kruskal-Wallis testen
+
+##### Per process
+
+De Kruskal-Wallis test voor de subsets per process
+
+```{r}
+kruskal.test(Words ~ Process, data = memory)
+```
+Zonder rekening te houden met leeftijd, is er een significant bewijs dat minstens 1 process een verschillende gemiddelde heeft voor het aantal woorden.
+
+##### Effect van leeftijd
+
+Om te controleren of er een effect is van leeftijd, doen we dezelfde test opnieuw, maar eens voor de data overeenkomend met jongeren, en de tweede keer voor de data van de oudere testpersonen.
+
+```{r}
+kruskal.test(Words ~ Process, data = memory %>% filter(Age == "Older"))
+kruskal.test(Words ~ Process, data = memory %>% filter(Age == "Younger"))
+```
+
+Het effect is meer uitgesproken voor jongeren, maar in beide gevallen significant.
+
+##### Effect van proces en leeftijd
+
+Overeenkomend met de interactie term in het lineaire model, kunnen we de Kruskal-Wallis test ook uitvoeren op de subsets per combinatie van Process en Age.
+
+```{r}
+kruskal.test(memory.split.all)
+```
+
+#### Wilcoxon-Mann-Whitney testen
+
+Om efficiënter de verschillende Wilcoxon-Mann-Whitney testen te kunnen uitvoeren, definiëren we de functie : 
+
+```{r}
+wc.tests <- function(subsets) {
+  ind.comb <- combn(1:length(subsets), 2)
+  
+  pw.result <- data.frame()
+  
+  pairwise.tests <- lapply(1:ncol(ind.comb), function(i) { 
+    wc.test = wilcox.test(subsets[[ind.comb[1,i]]],
+                          subsets[[ind.comb[2,i]]], conf.int = TRUE)
+    
+    pw.test <- data.frame(
+      subset1 = names(subsets)[ind.comb[1,i]],
+      subset2 = names(subsets)[ind.comb[2,i]],
+      p.value = wc.test$p.value,
+      lower = round(wc.test$conf.int[1],3),
+      upper = round(wc.test$conf.int[2],3),
+      location.shift = round(wc.test$estimate,3)
+    )
+    
+    pw.test
+  })
+  
+  do.call("bind_rows", pairwise.tests)
+}
+```
+
+### Vergelijking van de methodes
+
+Om de resultaten van het lineaire model te vergelijken met de resultaten van de wilcoxon testen, definiëren we nog de functie.
+
+```{r}
+lm.tests <- function(pred.results) {
+  ind.comb <- combn(1:length(pred.results), 2) 
+  
+  pairwise.diffs <- lapply(1:ncol(ind.comb), function(i) { 
+    diff = pred.results[ind.comb[1,i],"value"] - pred.results[ind.comb[2,i],"value"]
+    
+    lm.val <- data.frame(
+      subset1 = pred.results[ind.comb[1,i],"subset"],
+      subset2 = pred.results[ind.comb[2,i],"subset"],
+      diff = round(diff, 3)
+    )
+    
+    lm.val
+  })
+  
+  do.call("bind_rows", pairwise.diffs)
+}
+```
+
+Uitgevoerd voor alle combinaties van Process en Age : 
+
+```{r}
+wc.df.all <- wc.tests(memory.split.all) %>% 
+    mutate(significant = p.value < 0.05 )
+```
+
+We kunnen dit vergelijken met de resultaten van het lineaire model : 
+
+```{r}
+lm.df.all <- lm.tests(res.table)
+```
 

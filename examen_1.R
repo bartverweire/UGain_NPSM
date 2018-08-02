@@ -171,12 +171,11 @@ kruskal.test(Words ~ Process, data = memory %>% filter(Age == "Younger"))
 # --> Het effect is meer uitgesproken voor jongeren, maar in beide gevallen significant
 
 # Kruskal-Wallis rank sum test op de verschillende subsets (dus alle subsets Age,Process met elkaar vergeleken)
-kruskal.test(lapply(memory.split.all, '[[', "Words"))
+kruskal.test(memory.split.all)
 # --> minstens 1 combinatie (Age,Process) heeft verschillende mu
 
 # Wilcoxon-Mann-Whitney test voor individuele subsets 
 # Eerst uitvoeren voor de verschillende processen, zonder rekening te houden met leeftijd
-
 wc.tests <- function(subsets) {
   ind.comb <- combn(1:length(subsets), 2)
   
