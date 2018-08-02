@@ -2,5 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-examen.html
+examen*.html
+examen*.tex
 .Rproj.user
