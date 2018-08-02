@@ -1,0 +1,172 @@
+---
+title: "Examen Niet-parametrische Statistische Methoden"
+author: "Bart Verweire"
+date: "2018 M08 2"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, include=FALSE}
+library(tidyverse)
+library(knitr)
+```
+
+## Vraag 1 - Geheugentest
+
+### Data Visualisatie
+
+```{r, include=FALSE}
+load(file = "memory.rda")
+```
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE, fig.width = 8, fig.height = 2}
+# Visualiseer data
+ggplot(memory, aes(Words, fill = Age)) +
+  geom_histogram(position = "dodge") +
+  facet_wrap(~ Process)
+
+ggplot(memory, aes(Words, fill = Process)) +
+  geom_histogram(position = "dodge") +
+  facet_wrap(~ Age)
+```
+
+Uit de figuren kan afgeleid worden dat er een verschil is in het aantal herinnerde woorden tussen het Counting proces en de andere processen (Imagery en Intentional).
+Voor de processen Imagery en Intentional lijkt er wel een verschil te zijn tussen jongeren en ouderen.
+
+We onderzoeken nu of het aantal herinnerde woorden afhankelijk is van het proces, en of dit effect afhankelijk is van de leeftijd.
+
+### Regressie
+
+We voeren een lineaire regressie uit. Merk op dat de onafhankelijke variabelen alle categorische variabelen zijn.
+
+Bij een lineaire regressie zijn de veronderstellingen :
+
+* de observaties zijn onafhankelijk : we gaan ervan uit dat dit klopt, aangezien de onderzoekers de personen random in groepen verdeeld hebben.
+* de residuelen zijn normaal verdeeld
+* de variantie van de residuelen is onafhankelijk van de groep
+
+We kunnen de lineaire regressie uitvoeren met en zonder interactie tussen de variabelen Age en Process.
+
+#### Zonder interactie
+
+We definiëren het volgende model 
+
+```{r}
+mem.lm <- lm(Words ~ Age + Process, data = memory)
+```
+
+```{r}
+summary(mem.lm)
+anova(mem.lm)
+```
+
+Dit geeft aan dat er een sifnificant verband is tussen de processen Counting enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we hier niet spreken).
+In het algemeen is er ook een significante invloed van de leeftijd.
+
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+plot(mem.lm)
+```
+
+De voorwaarden zijn redelijk goed voldaan. De variantie niet onafhankelijk van de gefitte waarde, en de residuals zijn niet perfect normaal verdeeld, maar het verschil is aanvaardbaar.
+
+```{r echo=FALSE}
+mem.lm.pred <- predict(mem.lm, se.fit = TRUE)
+mem.lm.data <- memory %>% 
+  mutate(fit = mem.lm.pred$fit,
+         l = mem.lm.pred$fit - 1.96*mem.lm.pred$se.fit,
+         u = mem.lm.pred$fit + 1.96*mem.lm.pred$se.fit)
+
+ggplot(mem.lm.data, aes(Process, Words, color = Age, fill = Age)) +
+  geom_point() +
+  geom_line(aes(x = as.numeric(Process), y = fit)) +
+  geom_ribbon(aes(as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1)
+``` 
+
+#### Met interactie
+
+```{r}
+mem.lm.int <- lm(Words ~ Age * Process, data = memory)
+```
+
+```{r}
+summary(mem.lm.int)
+anova(mem.lm.int)
+```
+
+Ook de interactieterm is dus significant.
+
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+plot(mem.lm.int)
+```
+
+```{r echo=FALSE}
+mem.lm.int.pred <- predict(mem.lm.int, se.fit = TRUE)
+mem.lm.int.data <- memory %>% 
+  mutate(fit = mem.lm.int.pred$fit,
+         l = mem.lm.int.pred$fit - 1.96*mem.lm.int.pred$se.fit,
+         u = mem.lm.int.pred$fit + 1.96*mem.lm.int.pred$se.fit)
+
+ggplot(mem.lm.int.data, aes(Process, Words, color = Age, fill = Age)) +
+  geom_point() +
+  geom_line(aes(y = fit)) +
+  geom_ribbon(aes(ymin = l, ymax = u), alpha = 0.1)
+```
+
+Merk op dat het model met interactie er op neer komt dat voor elke combinatie (Age, Process) het gemiddelde genomen wordt.
+
+Definieer een data frame met de mogelijke combinaties.
+
+```{r}
+test.data <- expand.grid(Age = c("Older","Younger"), Process = c("Counting","Imagery","Intentional"))
+str(test.data)
+test.data
+```
+
+We gebruiken nu het model om het aantal woorden te voorspellen.
+
+pred.lm.int <- predict(mem.lm.int, newdata = test.data)
+res.table <- test.data %>% 
+  bind_cols(value = pred.lm.int$fit) %>% 
+  mutate(subset = paste(Age, Process, sep = "."))
+
+En dit resultaat vergelijken met een tabel met de gemiddelden : 
+
+```{r}
+avg.table.age.process <- memory %>% 
+  group_by(Age, Process) %>% 
+  summarize(mean.age.pro`cess = mean(Words))
+```
+
+Beide resultaten kunnen vergeleken worden door de resultaten te joinen
+
+```{r}
+comp.table <- res.table %>% 
+  inner_join(avg.table.age.process, by = c("Age","Process"))
+```
+
+#### Keuze van het model
+
+```{r}
+AIC(mem.lm, mem.lm.int)
+```
+
+Het model met de interactie term levert de laagste AIC, en is dus te verkiezen.
+
+### Rang-gebaseerde methodes
+
+De Kruskal-Wallis test laat toe om te kijken of er een significant verschil is in het aantal herinnerde woorden. We kunnen de test uitvoeren op
+* de subsets per Process
+* de subsets per Process en Age
+
+Deze test zal aanduiden of er een significant verschil is in het gemiddeld aantal herinnerde woorden, maar leert ons niets over het effectieve verschil. Hiervoor moeten we dan de Wilcoxon-Mann-Whitney two-sample tests uitvoeren per 2 subsets. 
+Aan de hand van de Hodges-Lehman schatter kunnen we dan bekijken wat het verschil is in het aantal herinnerde woorden tussen de verschillende subsets.
+
+
+
