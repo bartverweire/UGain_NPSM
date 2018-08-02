@@ -131,17 +131,19 @@ test.data
 
 We gebruiken nu het model om het aantal woorden te voorspellen.
 
-pred.lm.int <- predict(mem.lm.int, newdata = test.data)
+```{r}
+pred.lm.int <- predict(mem.lm.int, newdata = test.data, se.fit = TRUE)
 res.table <- test.data %>% 
   bind_cols(value = pred.lm.int$fit) %>% 
   mutate(subset = paste(Age, Process, sep = "."))
+```
 
-En dit resultaat vergelijken met een tabel met de gemiddelden : 
+En dit resultaat vergelijken we met een tabel met de gemiddelden : 
 
 ```{r}
 avg.table.age.process <- memory %>% 
   group_by(Age, Process) %>% 
-  summarize(mean.age.pro`cess = mean(Words))
+  summarize(mean.age.process = mean(Words))
 ```
 
 Beide resultaten kunnen vergeleken worden door de resultaten te joinen
