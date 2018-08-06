@@ -26,7 +26,6 @@ anova(ue.mod)
 
 # --> Interpretatie : significant verband met Year, maar niet met Monthly
 
-
 # Visualizeer resultaat
 ue.mod.pred = predict(ue.mod, se.fit = TRUE)
 ue.mod.data <- unemploymentUS %>% 
@@ -97,9 +96,31 @@ ggplot(ue.mod.year.lin.data, aes(Year + Monthly / 12)) +
   theme(axis.text.x = element_text(angle = 90))
 
 # Effect van maand kan misschien beter inbegrepen worden door niet te fitten op year, maar op year + monthly / 12
-# Dit komt neer op modelleren op de echte datum
+ue.mod.datenr <- gam(Rate ~ s(date.number), data = unemploymentUS)
+summary(ue.mod.datenr)
+anova(ue.mod.datenr)
 
-ue.mod.date <- gam(Rate ~ s(date.number), data = unemploymentUS)
+# --> eveneens significant
+# Visualizeer resultaat
+ue.mod.datenr.pred = predict(ue.mod.datenr, se.fit = TRUE)
+
+ue.mod.datenr.data <- unemploymentUS %>% 
+  mutate(fit = ue.mod.datenr.pred$fit,
+         l = ue.mod.datenr.pred$fit - 1.96 * ue.mod.datenr.pred$se.fit,
+         u = ue.mod.datenr.pred$fit + 1.96 * ue.mod.datenr.pred$se.fit)
+
+ggplot(ue.mod.datenr.data, aes(Year + Monthly / 12)) +
+  geom_point(aes(y = Rate)) +
+  geom_line(aes(y = fit), color = "red") +
+  geom_ribbon(aes(ymin = l, ymax = u), fill = "red", alpha = 0.1) +
+  scale_x_continuous(breaks = 1970:1990) +
+  theme(axis.text.x = element_text(angle = 90))
+
+plot(ue.mod.datenr.pred)
+
+# Modelleer tov. datum (niet als number, maar als date)
+
+ue.mod.date <- gam(Rate ~ s(as.numeric(date)), data = unemploymentUS)
 summary(ue.mod.date)
 anova(ue.mod.date)
 
@@ -120,21 +141,63 @@ ggplot(ue.mod.date.data, aes(Year + Monthly / 12)) +
   theme(axis.text.x = element_text(angle = 90))
 
 plot(ue.mod.date)
+
+# Modelleer tov. datum (niet als number, maar als date)
+
+ue.mod.te <- gam(Rate ~ te(Year, Monthly), data = unemploymentUS)
+summary(ue.mod.te)
+anova(ue.mod.te)
+
+# --> eveneens significant
+# Visualizeer resultaat
+ue.mod.te.pred = predict(ue.mod.te, se.fit = TRUE)
+
+ue.mod.te.data <- unemploymentUS %>% 
+  mutate(fit = ue.mod.te.pred$fit,
+         l = ue.mod.te.pred$fit - 1.96 * ue.mod.te.pred$se.fit,
+         u = ue.mod.te.pred$fit + 1.96 * ue.mod.te.pred$se.fit)
+
+ggplot(ue.mod.te.data, aes(Year + Monthly / 12)) +
+  geom_point(aes(y = Rate)) +
+  geom_line(aes(y = fit), color = "red") +
+  geom_ribbon(aes(ymin = l, ymax = u), fill = "red", alpha = 0.1) +
+  scale_x_continuous(breaks = 1970:1990) +
+  theme(axis.text.x = element_text(angle = 90))
+
+plot(ue.mod.te)
 # Alle modellen samen gevisualiseerd : 
 
 ggplot(unemploymentUS, aes(date.number, Rate)) +
   geom_point(aes(Year + Monthly/12), alpha = 0.1) +
-  geom_line(aes(y = fit), data = ue.mod.data, color = "red") +
-  geom_ribbon(aes(ymin = l, ymax = u), data = ue.mod.data, fill = "red", alpha = 0.1) +
-  geom_line(aes(y = fit), data = ue.mod.year.data, color = "green") +
-  geom_ribbon(aes(ymin = l, ymax = u), data = ue.mod.year.data, fill = "green", alpha = 0.1) +
-  geom_line(aes(y = fit), data = ue.mod.date.data, color = "blue") +
-  geom_ribbon(aes(ymin = l, ymax = u), data = ue.mod.date.data, fill = "blue", alpha = 0.1) +
+  geom_line(aes(y = fit, 
+                color = "gam Year + Month"), 
+            data = ue.mod.data) +
+  geom_ribbon(aes(ymin = l, ymax = u), 
+              data = ue.mod.data, fill = "red", alpha = 0.1) +
+  geom_line(aes(y = fit, 
+                color = "gam Year"), 
+            data = ue.mod.year.data) +
+  geom_ribbon(aes(ymin = l, ymax = u), 
+              data = ue.mod.year.data, fill = "green", alpha = 0.1) +
+  geom_line(aes(y = fit,
+                color = "gam Year + Monthly/12"), 
+            data = ue.mod.datenr.data) +
+  geom_ribbon(aes(ymin = l, ymax = u), 
+              data = ue.mod.datenr.data, fill = "blue", alpha = 0.1) +
+  geom_line(aes(y = fit, 
+                color = "gam Year (lineair)"), 
+            data = ue.mod.year.lin.data) +
+  geom_ribbon(aes(ymin = l, ymax = u), 
+              data = ue.mod.year.lin.data, fill = "orange", alpha = 0.1) +
   scale_x_continuous(breaks = 1970:1990) +
+  scale_color_manual("Model", values = c("gam Year" = "green",
+                                         "gam Year (lineair)" = "orange",
+                                         "gam Year + Month" = "red",
+                                         "gam Year + Monthly/12" = "blue")) +
   theme(axis.text.x = element_text(angle = 90))
 
 
-AIC(ue.mod, ue.mod.date, ue.mod.year)
+AIC(ue.mod, ue.mod.date, ue.mod.datenr, ue.mod.year, ue.mod.te)
 
 # --> Het model op basis van Year + Monthly /12 is het beste
 

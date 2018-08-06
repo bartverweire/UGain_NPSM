@@ -2,7 +2,9 @@
 title: "Niet-parametrische Statistische Methoden - Examen"
 author: "Bart Verweire"
 date: "2018 M07 27"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -13,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(knitr)
 ```
+
 
 ## Vraag 3
 
@@ -335,9 +338,11 @@ sims <- sapply(1:nrow(params), function(i) {
             )$typeI.fout.pct
 })
 
-result <- params
-result$p.val <- sims
+result <- params %>% 
+  mutate(p.val = sims)
 ```
 ```{r, echo=FALSE}
-kable(result, caption = "Monte-Carlo simulation for 32 Scenarios")
+result %>% 
+  arrange(p.val) %>% 
+  kable(caption = "Monte-Carlo simulation for 32 Scenarios")
 ```

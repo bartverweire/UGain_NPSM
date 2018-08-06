@@ -3,12 +3,13 @@ title: "Examen Niet-parametrische Statistische Methoden"
 author: "Bart Verweire"
 date: "2018 M08 2"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(width = 240)
 ```
 
 ```{r libraries, include=FALSE}
@@ -16,12 +17,16 @@ library(tidyverse)
 library(knitr)
 ```
 
-## Vraag 1 - Geheugentest
+# Vraag 1 - Geheugentest
 
-### Data Visualisatie
+## Data Visualisatie
 
 ```{r, include=FALSE}
 load(file = "memory.rda")
+memory.younger <- memory %>% 
+  filter(Age == "Younger")
+memory.older <- memory %>% 
+  filter(Age == "Older")
 ```
 
 ```{r, echo=FALSE,message=FALSE,warning=FALSE, fig.width = 8, fig.height = 2}
@@ -33,14 +38,17 @@ ggplot(memory, aes(Words, fill = Age)) +
 ggplot(memory, aes(Words, fill = Process)) +
   geom_histogram(position = "dodge") +
   facet_wrap(~ Age)
+
+ggplot(memory, aes(interaction(Age, Process), Words)) +
+  geom_boxplot()
 ```
 
 Uit de figuren kan afgeleid worden dat er een verschil is in het aantal herinnerde woorden tussen het Counting proces en de andere processen (Imagery en Intentional).
-Voor de processen Imagery en Intentional lijkt er wel een verschil te zijn tussen jongeren en ouderen.
+Voor de processen Imagery en Intentional lijkt er ook een verschil te zijn tussen jongeren en ouderen.
 
 We onderzoeken nu of het aantal herinnerde woorden afhankelijk is van het proces, en of dit effect afhankelijk is van de leeftijd.
 
-### Regressie
+## Regressie
 
 We voeren een lineaire regressie uit. Merk op dat de onafhankelijke variabelen alle categorische variabelen zijn.
 
@@ -50,9 +58,98 @@ Bij een lineaire regressie zijn de veronderstellingen :
 * de residuelen zijn normaal verdeeld
 * de variantie van de residuelen is onafhankelijk van de groep
 
-We kunnen de lineaire regressie uitvoeren met en zonder interactie tussen de variabelen Age en Process.
+We kunnen de lineaire regressie uitvoeren op verschillende wijzen :   
+* onafhankelijk van de leeftijd
+* afhankelijk van proces en leeftijd, zonder interactie
+* afhankelijk van proces en leeftijd, met en zonder interactie tussen de variabelen Age en Process.
 
-#### Zonder interactie
+### Test functie
+
+Om de resultaten van het lineaire model eenvoudiger te vergelijken met de resultaten van de wilcoxon testen (zie verder), definiëren we nog de functie.
+
+```{r}
+lm.tests <- function(model, test.data) {
+  pred <- predict(model, newdata = test.data, se.fit = TRUE)
+  res.table <- test.data %>% 
+    bind_cols(value = pred$fit,
+              lower = pred$fit - 1.96*pred$se.fit,
+              upper = pred$fit + 1.96*pred$se.fit) %>% 
+    mutate(subset = id)
+
+  ind.comb <- combn(1:length(res.table), 2) 
+  
+  pairwise.diffs <- lapply(1:ncol(ind.comb), function(i) { 
+    diff = res.table[ind.comb[1,i],"value"] - res.table[ind.comb[2,i],"value"]
+    
+    lm.val <- data.frame(
+      subset1 = res.table[ind.comb[1,i],"subset"],
+      subset2 = res.table[ind.comb[2,i],"subset"],
+      diff = round(diff, 3)
+    )
+    
+    lm.val
+  })
+  
+  do.call("bind_rows", pairwise.diffs)
+}
+```
+
+We zullen de test functie uitvoeren op de resultaten van de predict functie, met als data een data frame met de mogelijke combinaties van Age en Process.
+
+```{r}
+test.data.age.process <- expand.grid(Age = c("Older","Younger"), 
+                                     Process = c("Counting","Imagery","Intentional")) %>% 
+  mutate(id = paste(Age, Process, sep = "."))
+test.data.process <- data.frame(Process = c("Counting","Imagery","Intentional")) %>% 
+  mutate(id = Process)
+test.data.process.younger <- data.frame(Process = c("Counting","Imagery","Intentional"), Age = "Younger") %>% 
+  mutate(id = Process)
+test.data.process.older <- data.frame(Process = c("Counting","Imagery","Intentional"), Age = "Older") %>% 
+  mutate(id = Process)
+                              
+str(test.data.age.process)
+test.data.age.process
+str(test.data.process.younger)
+test.data.process.younger
+test.data.process.older
+```
+
+
+### Effect van het proces
+```{r}
+mem.lm.proc = lm(Words ~ Process, data = memory)
+```
+
+```{r}
+summary(mem.lm.proc)
+anova(mem.lm.proc)
+```
+
+Er is een significant verband tussen het aantal herinnerde woorden en het proces.
+
+Zowel de t-test als de F-test wijzen op een sifnificant verband is tussen het proces Counting enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via dit model niet spreken).
+
+In de plot van het model zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie redelijk goed voldaan zijn.  
+De variantie niet onafhankelijk van de gefitte waarde, en de residuals zijn niet perfect normaal verdeeld, maar het verschil is aanvaardbaar.
+
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+plot(mem.lm.proc)
+```
+```{r echo=FALSE}
+mem.lm.proc.pred <- predict(mem.lm.proc, se.fit = TRUE)
+mem.lm.proc.data <- memory %>% 
+  mutate(fit = mem.lm.proc.pred$fit,
+         l = mem.lm.proc.pred$fit - 1.96*mem.lm.proc.pred$se.fit,
+         u = mem.lm.proc.pred$fit + 1.96*mem.lm.proc.pred$se.fit)
+
+ggplot(mem.lm.proc.data, aes(Process, Words)) +
+  geom_point() +
+  geom_line(aes(x = as.numeric(Process), y = fit)) +
+  geom_ribbon(aes(as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1)
+``` 
+
+### Effect van leeftijd, zonder interactie
 
 We definiëren het volgende model 
 
@@ -65,15 +162,17 @@ summary(mem.lm)
 anova(mem.lm)
 ```
 
-Dit geeft aan dat er een sifnificant verband is tussen de processen Counting enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we hier niet spreken).
-In het algemeen is er ook een significante invloed van de leeftijd.
+Zowel de t-test als de F-test wijzen op een sifnificant verband is tussen het proces Counting enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via dit model niet spreken).
+In het algemeen is er ook een significante invloed van de leeftijd : jongeren onthouden meer woorden dan ouderen.
+
+In de plot van het model zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie redelijk goed voldaan zijn. 
+
+De variantie niet onafhankelijk van de gefitte waarde, en de residuals zijn niet perfect normaal verdeeld, maar het verschil is aanvaardbaar.
 
 ```{r echo=FALSE}
 par(mfrow=c(2,2))
 plot(mem.lm)
 ```
-
-De voorwaarden zijn redelijk goed voldaan. De variantie niet onafhankelijk van de gefitte waarde, en de residuals zijn niet perfect normaal verdeeld, maar het verschil is aanvaardbaar.
 
 ```{r echo=FALSE}
 mem.lm.pred <- predict(mem.lm, se.fit = TRUE)
@@ -88,7 +187,9 @@ ggplot(mem.lm.data, aes(Process, Words, color = Age, fill = Age)) +
   geom_ribbon(aes(as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1)
 ``` 
 
-#### Met interactie
+### Met interactie
+
+We kijken nu naar de invloed van de interactie tussen Age en Process, via volgend model :
 
 ```{r}
 mem.lm.int <- lm(Words ~ Age * Process, data = memory)
@@ -100,6 +201,7 @@ anova(mem.lm.int)
 ```
 
 Ook de interactieterm is dus significant.
+
 
 ```{r echo=FALSE}
 par(mfrow=c(2,2))
@@ -115,27 +217,19 @@ mem.lm.int.data <- memory %>%
 
 ggplot(mem.lm.int.data, aes(Process, Words, color = Age, fill = Age)) +
   geom_point() +
-  geom_line(aes(y = fit)) +
-  geom_ribbon(aes(ymin = l, ymax = u), alpha = 0.1)
+  geom_line(aes(as.numeric(Process), fit)) +
+  geom_ribbon(aes(x = as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1)
 ```
 
 Merk op dat het model met interactie er op neer komt dat voor elke combinatie (Age, Process) het gemiddelde genomen wordt.
 
-Definieer een data frame met de mogelijke combinaties.
+
+We gebruiken het model om het aantal woorden te voorspellen.
 
 ```{r}
-test.data <- expand.grid(Age = c("Older","Younger"), Process = c("Counting","Imagery","Intentional"))
-str(test.data)
-test.data
-```
-
-We gebruiken nu het model om het aantal woorden te voorspellen.
-
-```{r}
-pred.lm.int <- predict(mem.lm.int, newdata = test.data, se.fit = TRUE)
-res.table <- test.data %>% 
-  bind_cols(value = pred.lm.int$fit) %>% 
-  mutate(subset = paste(Age, Process, sep = "."))
+pred.lm.int <- predict(mem.lm.int, newdata = test.data.age.process)
+res.table <- test.data.age.process %>% 
+  bind_cols(value = pred.lm.int)
 ```
 
 En dit resultaat vergelijken we met een tabel met de gemiddelden : 
@@ -151,9 +245,10 @@ Beide resultaten kunnen vergeleken worden door de resultaten te joinen
 ```{r}
 comp.table <- res.table %>% 
   inner_join(avg.table.age.process, by = c("Age","Process"))
+comp.table
 ```
 
-#### Keuze van het model
+### Keuze van het model
 
 ```{r}
 AIC(mem.lm, mem.lm.int)
@@ -161,62 +256,41 @@ AIC(mem.lm, mem.lm.int)
 
 Het model met de interactie term levert de laagste AIC, en is dus te verkiezen.
 
-### Rang-gebaseerde methodes
+## Rang-gebaseerde methodes
 
 De Kruskal-Wallis test laat toe om te kijken of er een significant verschil is in het aantal herinnerde woorden. We kunnen de test uitvoeren op
+
 * de subsets per Process
 * de subsets per Process en Age
 
-Deze test zal aanduiden of er een significant verschil is in het gemiddeld aantal herinnerde woorden, maar leert ons niets over het effectieve verschil. Hiervoor moeten we dan de Wilcoxon-Mann-Whitney two-sample tests uitvoeren per 2 subsets. 
+Deze test zal aanduiden of er een significant verschil is in het gemiddeld aantal herinnerde woorden, maar leert ons niets over het effectieve verschil. Hiervoor moeten we dan de Wilcoxon-Mann-Whitney two-sample tests uitvoeren per 2 subsets.  
 Aan de hand van de Hodges-Lehman schatter kunnen we dan bekijken wat het verschil is in het aantal herinnerde woorden tussen de verschillende subsets.
 
+De rank-gebaseerde methodes veronderstellen geen normaliteit. 
+Als we de Hodges-Lehman schatter gebruiken, dan is er uiteraard wel een veronderstelling van locatie-shift, dus in dit geval wordt wel verondersteld dat de varianties van de verschillende subsets gelijk zijn.
 
-#### Voorbereiding - data splitsen
 
-We kunnen de Kruskal-Wallis en Wilcoxon tests uitvoeren op verschillende subsets. Daarvoor definiëren we de subsets als volgt : 
+### Voorbereiding - data splitsen
 
-```{r}
-memory.split.all <- lapply(split(memory, list(memory$Age, memory$Process)), '[[', "Words")
-memory.split.age <- lapply(split(memory, memory$Age), '[[', "Words")
-memory.split.process <- lapply(split(memory, memory$Process), '[[', "Words")
-```
+We kunnen de Kruskal-Wallis en Wilcoxon tests uitvoeren op verschillende subsets. Bv.  
+* subsets per proces
+* subsets per leeftijd (invloed van process, voor een specifieke leeftijdscategorie)
+* subsets per proces en leeftijd (invloed van proces en leeftijd)
 
-#### Kruskal-Wallis testen
-
-##### Per process
-
-De Kruskal-Wallis test voor de subsets per process
+Daarvoor definiëren we de subsets als volgt : 
 
 ```{r}
-kruskal.test(Words ~ Process, data = memory)
+memory.by.age.process <- lapply(split(memory, list(memory$Age, memory$Process)), '[[', "Words")
+memory.by.age <- lapply(split(memory, memory$Age), '[[', "Words")
+memory.by.process <- lapply(split(memory, memory$Process), '[[', "Words")
+memory.by.process.older <- lapply(split(memory.older, memory.older$Process), '[[', "Words")
+memory.by.process.younger <- lapply(split(memory.younger, memory.younger$Process), '[[', "Words")
 ```
-Zonder rekening te houden met leeftijd, is er een significant bewijs dat minstens 1 process een verschillende gemiddelde heeft voor het aantal woorden.
-
-##### Effect van leeftijd
-
-Om te controleren of er een effect is van leeftijd, doen we dezelfde test opnieuw, maar eens voor de data overeenkomend met jongeren, en de tweede keer voor de data van de oudere testpersonen.
-
-```{r}
-kruskal.test(Words ~ Process, data = memory %>% filter(Age == "Older"))
-kruskal.test(Words ~ Process, data = memory %>% filter(Age == "Younger"))
-```
-
-Het effect is meer uitgesproken voor jongeren, maar in beide gevallen significant.
-
-##### Effect van proces en leeftijd
-
-Overeenkomend met de interactie term in het lineaire model, kunnen we de Kruskal-Wallis test ook uitvoeren op de subsets per combinatie van Process en Age.
-
-```{r}
-kruskal.test(memory.split.all)
-```
-
-#### Wilcoxon-Mann-Whitney testen
 
 Om efficiënter de verschillende Wilcoxon-Mann-Whitney testen te kunnen uitvoeren, definiëren we de functie : 
 
 ```{r}
-wc.tests <- function(subsets) {
+wc.tests <- function(subsets, adjust.method = "bonferroni") {
   ind.comb <- combn(1:length(subsets), 2)
   
   pw.result <- data.frame()
@@ -237,44 +311,96 @@ wc.tests <- function(subsets) {
     pw.test
   })
   
-  do.call("bind_rows", pairwise.tests)
+  # Add adjusted p-values, based on the chosen method
+  pw.df <- do.call("bind_rows", pairwise.tests)
+  pw.df$p.value.adj <- p.adjust(pw.df$p.value, adjust.method)
+  
+  pw.df
 }
 ```
 
-### Vergelijking van de methodes
 
-Om de resultaten van het lineaire model te vergelijken met de resultaten van de wilcoxon testen, definiëren we nog de functie.
+### Kruskal-Wallis testen
+
+#### Per process
+
+De Kruskal-Wallis test voor de subsets per Process
 
 ```{r}
-lm.tests <- function(pred.results) {
-  ind.comb <- combn(1:length(pred.results), 2) 
-  
-  pairwise.diffs <- lapply(1:ncol(ind.comb), function(i) { 
-    diff = pred.results[ind.comb[1,i],"value"] - pred.results[ind.comb[2,i],"value"]
-    
-    lm.val <- data.frame(
-      subset1 = pred.results[ind.comb[1,i],"subset"],
-      subset2 = pred.results[ind.comb[2,i],"subset"],
-      diff = round(diff, 3)
-    )
-    
-    lm.val
-  })
-  
-  do.call("bind_rows", pairwise.diffs)
-}
+kruskal.test(memory.by.process)
 ```
+Zonder rekening te houden met leeftijd, is er een significant bewijs dat minstens 1 process een verschillende gemiddelde heeft voor het aantal woorden.
+
+
+#### Effect van leeftijd
+
+Om te controleren of er een effect is van leeftijd, doen we dezelfde test opnieuw, maar eens voor de data overeenkomend met jongeren, en de tweede keer voor de data van de oudere testpersonen.
+
+```{r}
+kruskal.test(Words ~ Process, data = memory.younger)
+kruskal.test(Words ~ Process, data = memory.older)
+```
+
+Het effect is meer uitgesproken voor jongeren, maar in beide gevallen significant.
+
+#### Effect van proces en leeftijd
+
+Overeenkomend met de interactie term in het lineaire model, kunnen we de Kruskal-Wallis test ook uitvoeren op de subsets per combinatie van Process en Age.
+
+```{r}
+kruskal.test(memory.by.age.process)
+```
+
+
+### Wilcoxon-Mann-Whitney testen
 
 Uitgevoerd voor alle combinaties van Process en Age : 
 
-```{r}
-wc.df.all <- wc.tests(memory.split.all) %>% 
-    mutate(significant = p.value < 0.05 )
+```{r message=FALSE,warning=FALSE}
+wc.df.age.process <- wc.tests(memory.by.age.process) %>% 
+  mutate(significant = p.value.adj < 0.05 )
+wc.df.process.younger <- wc.tests(memory.by.process.younger) %>% 
+  mutate(significant = p.value.adj < 0.05)
+wc.df.process.older <- wc.tests(memory.by.process.older) %>% 
+  mutate(significant = p.value.adj < 0.05)
+wc.df.process.younger
+wc.df.process.older
+wc.df.age.process
 ```
+
+
+
+## Vergelijking van de methodes
 
 We kunnen dit vergelijken met de resultaten van het lineaire model : 
 
-```{r}
-lm.df.all <- lm.tests(res.table)
+```{r message=FALSE,warning=FALSE}
+lm.df.age.process <- lm.tests(mem.lm.int, test.data.age.process)
+lm.df.process.younger <- lm.tests(mem.lm.int, test.data.process.younger)
+lm.df.process.older <- lm.tests(mem.lm.int, test.data.process.older)
+str(lm.df.age.process)
 ```
+
+via een inner join : 
+
+```{r message=FALSE,warning=FALSE}
+comp.df.age.process <- lm.df.age.process %>% 
+  inner_join(wc.df.age.process, by = c("subset1","subset2"))
+comp.df.process.younger <- lm.df.process.younger %>% 
+  inner_join(wc.df.process.younger, by = c("subset1","subset2"))
+comp.df.process.older <- lm.df.process.older %>% 
+  inner_join(wc.df.process.older, by = c("subset1","subset2"))
+comp.df.process.younger
+comp.df.process.older
+comp.df.age.process
+```
+
+Deze tabel geeft weer voor welke subsets een significant verschil kan worden aangeduid (in dit geval op basis van de bonferroni-aangepaste p-waarde).  
+Het Counting proces is significant verschillend van de Imagery en Intentional processen, voor elke leeftijdscategorie.  
+Het Intentional proces voor ouderen is significant minder efficiënt dan wat de jongeren presteren in voor het Imagery en Intentional proces.
+
+## Conclusie
+
+Beide methodes geven aan dat er een significant effect is van het proces, en van de leeftijd.  
+De methode via lineaire regressie laat enkel toe om na te gaan of er een significant effect is tov. een referentietoestand. De Wilcoxon-Mann-Whitney tests daarentegen laten toe om alle subsets met elkaar te vergelijken.
 

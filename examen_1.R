@@ -160,7 +160,7 @@ str(memory.split.age)
 str(memory.split.process)
 
 # Kruskal-Wallis test op process
-kruskal.test(Words ~ Process, data = memory)
+kruskal.test(memory.split.process)
 
 # --> Zonder rekening te houden met leeftijd, is er een significant bewijs dat minstens 1 process een verschillende gemiddelde heeft voor het aantal woorden
 

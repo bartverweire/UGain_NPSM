@@ -1,0 +1,385 @@
+---
+title: "Examen Niet-parametrische Statistische Methoden"
+author: "Bart Verweire"
+date: "2018 M08 2"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(width = 240)
+```
+
+```{r libraries, include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(mgcv)
+library(knitr)
+```
+
+```{r vraag_1, include=FALSE}
+load(file = "memory.rda")
+memory.younger <- memory %>% 
+  filter(Age == "Younger")
+memory.older <- memory %>% 
+  filter(Age == "Older")
+
+
+# test functie voor lineaire modellen
+lm.tests <- function(model, test.data) {
+  pred <- predict(model, newdata = test.data, se.fit = TRUE)
+  res.table <- test.data %>% 
+    bind_cols(value = pred$fit,
+              lower = pred$fit - 1.96*pred$se.fit,
+              upper = pred$fit + 1.96*pred$se.fit) %>% 
+    mutate(subset = id)
+
+  ind.comb <- combn(1:nrow(res.table), 2) 
+  
+  pairwise.diffs <- lapply(1:ncol(ind.comb), function(i) { 
+    diff = res.table[ind.comb[1,i],"value"] - res.table[ind.comb[2,i],"value"]
+    
+    lm.val <- data.frame(
+      subset1 = res.table[ind.comb[1,i],"subset"],
+      subset2 = res.table[ind.comb[2,i],"subset"],
+      diff = round(diff, 3)
+    )
+    
+    lm.val
+  })
+  
+  do.call("bind_rows", pairwise.diffs)
+}
+
+# Test data data frames
+test.data.age.process <- expand.grid(Age = c("Older","Younger"), 
+                                     Process = c("Counting","Imagery","Intentional")) %>% 
+  mutate(id = paste(Age, Process, sep = "."))
+test.data.process <- data.frame(Process = c("Counting","Imagery","Intentional")) %>% 
+  mutate(id = Process)
+test.data.process.younger <- data.frame(Process = c("Counting","Imagery","Intentional"), 
+                                        Age = "Younger") %>% 
+  mutate(id = Process)
+test.data.process.older <- data.frame(Process = c("Counting","Imagery","Intentional"), 
+                                      Age = "Older") %>% 
+  mutate(id = Process)
+
+# regressie modellen
+mem.lm.proc = lm(Words ~ Process, data = memory)
+mem.lm.proc.pred <- predict(mem.lm.proc, se.fit = TRUE)
+mem.lm.proc.data <- memory %>% 
+  mutate(fit = mem.lm.proc.pred$fit,
+         l = mem.lm.proc.pred$fit - 1.96*mem.lm.proc.pred$se.fit,
+         u = mem.lm.proc.pred$fit + 1.96*mem.lm.proc.pred$se.fit)
+
+an.lm.proc <- anova(mem.lm.proc)
+
+mem.lm <- lm(Words ~ Age + Process, data = memory)
+mem.lm.pred <- predict(mem.lm, se.fit = TRUE)
+mem.lm.data <- memory %>% 
+  mutate(fit = mem.lm.pred$fit,
+         l = mem.lm.pred$fit - 1.96*mem.lm.pred$se.fit,
+         u = mem.lm.pred$fit + 1.96*mem.lm.pred$se.fit)
+
+an.lm <- anova(mem.lm)
+
+mem.lm.int <- lm(Words ~ Age * Process, data = memory)
+mem.lm.int.pred <- predict(mem.lm.int, se.fit = TRUE)
+mem.lm.int.data <- memory %>% 
+  mutate(fit = mem.lm.int.pred$fit,
+         l = mem.lm.int.pred$fit - 1.96*mem.lm.int.pred$se.fit,
+         u = mem.lm.int.pred$fit + 1.96*mem.lm.int.pred$se.fit)
+
+an.lm.int <- anova(mem.lm.int)
+
+aic_lm <- AIC(mem.lm.proc, mem.lm, mem.lm.int)
+
+# data voor rang-gebaseerde methoden
+memory.by.age.process <- lapply(split(memory, list(memory$Age, memory$Process)), '[[', "Words")
+memory.by.age <- lapply(split(memory, memory$Age), '[[', "Words")
+memory.by.process <- lapply(split(memory, memory$Process), '[[', "Words")
+memory.by.process.older <- lapply(split(memory.older, memory.older$Process), '[[', "Words")
+memory.by.process.younger <- lapply(split(memory.younger, memory.younger$Process), '[[', "Words")
+
+kw.proc <- kruskal.test(memory.by.process)
+kw.proc.younger <- kruskal.test(Words ~ Process, data = memory.younger)
+kw.proc.older <- kruskal.test(Words ~ Process, data = memory.older)
+kw.proc.age <- kruskal.test(memory.by.age.process)
+
+kw.result <- data.frame(name = c("Process","Process (younger)","Process (older)", "Process + Age"),
+                       p.value = c(kw.proc$p.value, 
+                                   kw.proc.younger$p.value, 
+                                   kw.proc.older$p.value, 
+                                   kw.proc.age$p.value))
+
+wc.tests <- function(subsets, adjust.method = "bonferroni") {
+  ind.comb <- combn(1:length(subsets), 2)
+  
+  pw.result <- data.frame()
+  
+  pairwise.tests <- lapply(1:ncol(ind.comb), function(i) { 
+    wc.test = wilcox.test(subsets[[ind.comb[1,i]]],
+                          subsets[[ind.comb[2,i]]], conf.int = TRUE)
+    
+    pw.test <- data.frame(
+      subset1 = names(subsets)[ind.comb[1,i]],
+      subset2 = names(subsets)[ind.comb[2,i]],
+      p.value = wc.test$p.value,
+      lower = round(wc.test$conf.int[1],3),
+      upper = round(wc.test$conf.int[2],3),
+      location.shift = round(wc.test$estimate,3)
+    )
+    
+    pw.test
+  })
+  
+  # Add adjusted p-values, based on the chosen method
+  pw.df <- do.call("bind_rows", pairwise.tests)
+  pw.df$p.value.adj <- p.adjust(pw.df$p.value, adjust.method)
+  
+  pw.df
+}
+
+wc.df.age.process <- wc.tests(memory.by.age.process) %>% 
+  mutate(significant = p.value.adj < 0.05 )
+wc.df.process.younger <- wc.tests(memory.by.process.younger) %>% 
+  mutate(significant = p.value.adj < 0.05)
+wc.df.process.older <- wc.tests(memory.by.process.older) %>% 
+  mutate(significant = p.value.adj < 0.05)
+
+# Vergelijking
+lm.df.age.process <- lm.tests(mem.lm.int, test.data.age.process)
+lm.df.process.younger <- lm.tests(mem.lm.int, test.data.process.younger)
+lm.df.process.older <- lm.tests(mem.lm.int, test.data.process.older)
+
+comp.df.age.process <- lm.df.age.process %>% 
+  inner_join(wc.df.age.process, by = c("subset1","subset2"))
+comp.df.process.younger <- lm.df.process.younger %>% 
+  inner_join(wc.df.process.younger, by = c("subset1","subset2"))
+comp.df.process.older <- lm.df.process.older %>% 
+  inner_join(wc.df.process.older, by = c("subset1","subset2"))
+```
+
+# Vraag 1 - Geheugentest
+
+## Data Visualisatie
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE, fig.height = 2}
+# Visualiseer data
+ggplot(memory, aes(interaction(Age, Process), Words)) +
+  geom_boxplot()
+```
+
+Uit de boxplots kan afgeleid worden dat er een verschil is in het aantal herinnerde woorden tussen het Counting proces en de andere processen (Imagery en Intentional). Voor de processen Imagery en Intentional lijkt er ook een verschil te zijn tussen jongeren en ouderen.
+
+## Regressie
+
+Bij een lineaire regressie zijn de veronderstellingen :
+
+* de observaties zijn onafhankelijk (in orde door random toewijzing)
+* de residuelen zijn normaal verdeeld
+* de variantie van de residuelen is onafhankelijk van de groep
+
+We kunnen de lineaire regressie uitvoeren op verschillende wijzen :   
+
+* onafhankelijk van de leeftijd
+* afhankelijk van proces en leeftijd, met en zonder interactie
+
+De modellen kunnen vergeleken worden via de functie AIC (An Information Criterion). Het model met de interactie term levert de laagste AIC, en is dus te verkiezen.
+
+```{r echo=FALSE}
+aic_lm
+```
+
+De functie anova geeft in alle gevallen aan dat de regressie parameters significant zijn. Voor het model met interactie :
+
+```{r echo=FALSE}
+as.data.frame(an.lm.int)
+```
+
+Er een significant verschil is tussen het Counting proces enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via deze modellen niet spreken).
+In het algemeen is er ook een significante invloed van de leeftijd : jongeren onthouden meer woorden dan ouderen.
+
+```{r fig.height=2}
+par(mfrow=c(1,4))
+plot(mem.lm.int)
+``` 
+
+In de plot van het model (bv. voor het model met interactie) zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie redelijk goed voldaan zijn. De variantie niet onafhankelijk van de gefitte waarde, en de residuals zijn niet perfect normaal verdeeld, maar het verschil is aanvaardbaar.
+
+## Rang-gebaseerde methodes
+
+We gebruiken : 
+
+* de Kruskal-Wallis test, op verschillende subsets (per Process, eventueel beperkt tot een specifieke leeftijdscategorie, of per Process en Age), om uit te maken of er al dan niet een subset met afwijkende distributie.
+* De Wilcoxon-Mann-Whitney two-sample test voor elke combinatie van 2 subsets. In de veronderstelling van locatie-shift gebruiken we de Hodges-Lehman schatter om het verschil in gemiddelde van de subsets te bepalen.
+
+De rank-gebaseerde methodes veronderstellen geen normaliteit. 
+Als we de Hodges-Lehman schatter gebruiken, dan is er uiteraard wel een veronderstelling van locatie-shift, dus in dit geval wordt wel verondersteld dat de varianties van de verschillende subsets gelijk zijn.
+
+### Kruskal-Wallis testen
+
+De p-waarde van de kruskal Wallis tests, uitgevoerd tov. de verschillend subsets, toont telkens aan dat er minstens 1 subset is met afwijkende distributie. De p-waarde is het laagst voor de combinaties (Process, Age).
+
+```{r echo=FALSE}
+kw.result
+```
+
+### Wilcoxon-Mann-Whitney testen
+
+Uitgevoerd voor alle subsets per Process en Age, kunnen we hieruit de Hodges-Lehmann schatter, het betrouwbaarheids interval en de p-waarde berekeken.
+Volgende table bevat de resultaten, samen met deze van het lineair model met interactie.
+
+```{r echo=FALSE}
+comp.df.age.process
+```
+
+Deze tabel geeft weer voor welke subsets een significant verschil kan worden aangeduid (in dit geval op basis van de bonferroni-aangepaste p-waarde).  
+
+## Conclusie
+
+Beide methodes geven aan dat er een significant effect is van het proces, en van de leeftijd.  
+Het Counting proces is significant verschillend van de Imagery en Intentional processen, voor elke leeftijdscategorie.  
+Het Intentional proces voor ouderen is significant minder efficiënt dan wat de jongeren presteren in voor het Imagery en Intentional proces.
+De methode via lineaire regressie laat enkel toe om na te gaan of er een significant effect is tov. een referentietoestand. De Wilcoxon-Mann-Whitney tests daarentegen laten toe om alle subsets met elkaar te vergelijken.
+
+
+# Vraag 2 - Werkloosheidsgraad
+
+Op basis van de cijfers van de werkloosheidsgraad wordt gevraagd om na te gaan of er een lange termijnseffect en een seizoenseffect is.
+
+## Data Visualisatie
+
+```{r, include=FALSE}
+load(file = "unemploymentUS.rda")
+
+unemploymentUS <- unemploymentUS %>% 
+  mutate(date = ymd(paste(Year, Monthly, "01", sep="/")),
+         date.number = Year + Monthly / 12)
+```
+
+```{r echo=FALSE,fig.height=2}
+ggplot(unemploymentUS, aes(date, Rate)) +
+  geom_point() +
+  scale_x_date(labels = date_format("%Y-%m"), date_breaks = "year") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Unemployment Rate in US")
+```
+
+We zien een duidelijk niet-lineair verloop. Er lijkt een periodieke component te zijn, maar de periode is groter dan 1 jaar.
+
+Gezien de niet-lineariteit is een gam-model aangewezen.
+Er zijn 2 onafhankelijke variabelen, namelijk Year en Monthly, maar we kunnen dit combineren in 1 tijdsvariabele. We kunnen een aantal verschillende modellen opstellen
+
+* Year als onafhankelijke variabele
+* Year en Monthly als onafhankelijke variabelen
+* Tijd (of numeriek : Year + Monthly/12) als onafhankelijke variabele
+
+De modellen kunnen vergeleken worden via AIC.
+
+## gam model met splines voor Year en Monthly
+
+```{r include=FALSE}
+ue.mod <- gam(Rate ~ s(Year) + s(Monthly), data = unemploymentUS)
+
+ue.mod.pred = predict(ue.mod, se.fit = TRUE)
+ue.mod.data <- unemploymentUS %>% 
+  mutate(fit = ue.mod.pred$fit,
+         l = ue.mod.pred$fit - 1.96 * ue.mod.pred$se.fit,
+         u = ue.mod.pred$fit + 1.96 * ue.mod.pred$se.fit,
+         resid = residuals(ue.mod))
+
+ue.mod.year <- gam(Rate ~ s(Year), data = unemploymentUS)
+
+ue.mod.year.pred = predict(ue.mod.year, se.fit = TRUE)
+ue.mod.year.data <- unemploymentUS %>% 
+  mutate(fit = ue.mod.year.pred$fit,
+         l = ue.mod.year.pred$fit - 1.96 * ue.mod.year.pred$se.fit,
+         u = ue.mod.year.pred$fit + 1.96 * ue.mod.year.pred$se.fit,
+         resid = residuals(ue.mod.year))
+
+ue.mod.year.lin <- gam(Rate ~ Year, data = unemploymentUS)
+
+ue.mod.year.lin.pred = predict(ue.mod.year.lin, se.fit = TRUE)
+ue.mod.year.lin.data <- unemploymentUS %>% 
+  mutate(fit = ue.mod.year.lin.pred$fit,
+         l = ue.mod.year.lin.pred$fit - 1.96 * ue.mod.year.lin.pred$se.fit,
+         u = ue.mod.year.lin.pred$fit + 1.96 * ue.mod.year.lin.pred$se.fit)
+
+ue.mod.datenr <- gam(Rate ~ s(date.number), data = unemploymentUS)
+
+ue.mod.datenr.pred = predict(ue.mod.datenr, se.fit = TRUE)
+ue.mod.datenr.data <- unemploymentUS %>% 
+  mutate(fit = ue.mod.datenr.pred$fit,
+         l = ue.mod.datenr.pred$fit - 1.96 * ue.mod.datenr.pred$se.fit,
+         u = ue.mod.datenr.pred$fit + 1.96 * ue.mod.datenr.pred$se.fit)
+
+an.ue <- anova(ue.mod)$s.table
+an.ue.year <- anova(ue.mod.year)$s.table
+an.ue.year.lin <- anova(ue.mod.year.lin)$pTerms.table
+an.ue.datenr <- anova(ue.mod.datenr)$s.table
+```
+
+De functie anova geeft voor elk model aan of de coëfficienten significant zijn.
+
+```{r echo=FALSE}
+
+```
+
+Er is een significant niet-lineair verband met Year, maar niet met Monthly. 
+In het zuiver lineaire model zijn de coëfficiënten niet significant. Zoals visueel al duidelijk was, kunnen we ervan uitgaan dat de afhankelijkheid niet-lineair is.
+
+Het model op basis van tijd (Year + Monthly / 12) toont eveneens een significant niet-lineair verband.
+
+## Vergelijking
+
+```{r}
+AIC(ue.mod, ue.mod.datenr, ue.mod.year, ue.mod.year.lin)
+```
+
+Op basis van de AIC, is het niet-lineair model mbt. Year + Monthly /12 de beste keuze.
+
+```{r echo=FALSE, fig.height=2}
+ggplot(unemploymentUS, aes(date.number, Rate)) +
+  geom_point(aes(Year + Monthly/12), alpha = 0.1) +
+  geom_line(aes(y = fit, 
+                color = "gam Year + Month"), 
+            data = ue.mod.data) +
+  geom_ribbon(aes(ymin = l, ymax = u), 
+              data = ue.mod.data, fill = "red", alpha = 0.1) +
+  geom_line(aes(y = fit, 
+                color = "gam Year"), 
+            data = ue.mod.year.data) +
+  geom_ribbon(aes(ymin = l, ymax = u), 
+              data = ue.mod.year.data, fill = "green", alpha = 0.1) +
+  geom_line(aes(y = fit,
+                color = "gam Year + Monthly/12"), 
+            data = ue.mod.datenr.data) +
+  geom_ribbon(aes(ymin = l, ymax = u), 
+              data = ue.mod.datenr.data, fill = "blue", alpha = 0.1) +
+  geom_line(aes(y = fit, 
+                color = "gam Year (lineair)"), 
+            data = ue.mod.year.lin.data) +
+  geom_ribbon(aes(ymin = l, ymax = u), 
+              data = ue.mod.year.lin.data, fill = "orange", alpha = 0.1) +
+  scale_x_continuous(breaks = 1970:1990) +
+  scale_color_manual("Model", values = c("gam Year" = "green",
+                                         "gam Year (lineair)" = "orange",
+                                         "gam Year + Month" = "red",
+                                         "gam Year + Monthly/12" = "blue")) +
+  theme(axis.text.x = element_text(angle = 90))
+
+
+# plot(ue.mod.datenr.pred)
+```
+
+
+## Conclusie
+
+* Er is een significant niet-lineair verband tussen werkloosheidgraad en de tijd
+* De periode van de fluctuaties is groter dan 1 jaar, dus de invloed van het jaar is significant groter dan deze van de maand 
+
+
