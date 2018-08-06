@@ -3,8 +3,8 @@ title: "Niet-parametrische Statistische Methoden - Examen"
 author: "Bart Verweire"
 date: "2018 M07 27"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -38,7 +38,7 @@ dan is
 
 $$Y = e^X \sim LogN(\mu, \sigma ^2)$$
 
-Hierbij zijn $\mu$ en $\sigma$ de parameters van de normale verdeling. 
+Hierbij zijn $\mu$ en $\sigma$ de parameters van de geassocieerde normale verdeling. 
 
 Het zou natuurlijk interessanter zijn om deze gemiddelden uit te drukken in functie van gemiddelde en standaardafwijking van de log-normale verdeling zelf.
 
@@ -50,10 +50,10 @@ $$\sigma_{L}^2 = \left( e^{\sigma_{N}^2} - 1 \right)e^{2\mu_{N} + \sigma_{N}^2}$
 Beide formules kunnen herwerkt worden tot
 
 $$
-\begin{eqnarray}
-e^{\mu_{N}} &=& \mu_{L}e^{-{\frac{\sigma_{N}^2}{2}}} \\
-\mu_{N} &=& ln(\mu_{L})-{\frac{\sigma_{N}^2}{2}}
-\end{eqnarray}
+\begin{aligned}
+e^{\mu_{N}} &= \mu_{L}e^{-{\frac{\sigma_{N}^2}{2}}} \\
+\mu_{N} &= ln(\mu_{L})-{\frac{\sigma_{N}^2}{2}} \\
+\end{aligned}
 $$
 
 en
@@ -63,12 +63,12 @@ $$\sigma_{L}^2 = \left( e^{\sigma_{N}^2} - 1 \right)\mu_{L}^2$$
 Dit laat toe om de parameters van de normale distributie te schrijven in functie van deze van de log-normale distributie : 
 
 $$
-\begin{eqnarray}
-e^{\sigma_{N}^2} &=& 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \\
-\sigma_{N} &=& \sqrt{ln\left( 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \right)} \\
-e^{\mu_{N}} &=& \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \\
-\mu_{N} &=& ln\left( \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \right) \\
-\end{eqnarray}
+\begin{aligned}
+e^{\sigma_{N}^2} &= 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \\
+\sigma_{N} &= \sqrt{ln\left( 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \right)} \\
+e^{\mu_{N}} &= \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \\
+\mu_{N} &= ln\left( \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \right) \\
+\end{aligned}
 $$
 
 Aan de hand hiervan definiëren we de volgende functies
@@ -260,7 +260,7 @@ eval.mctest(test1)
 
 ```
 
-En een tweede test, met de log-normale verdeling
+Een tweede test, met de log-normale verdeling
 
 ```{r}
 test2 <- sim.mctest(n.total = 20000, 
@@ -277,6 +277,8 @@ eval.mctest(test2)
 ```
 
 
+Een test, met de normale verdeling en de pooled-variance two-sample t-test.
+
 ```{r}
 test3 <- sim.mctest(n.total = 20000, 
                     sample.ratio = 1, 
@@ -291,7 +293,7 @@ eval.mctest(test3)
 
 ```
 
-En een tweede test, met de log-normale verdeling
+Een test, met de normale verdeling en de pooled-variance two-sample t-test en een log-normale verdeling.
 
 ```{r}
 test4 <- sim.mctest(n.total = 20000, 
@@ -334,15 +336,80 @@ sims <- sapply(1:nrow(params), function(i) {
              sd = 1, 
              sd.ratio = p$sd.ratio,
              test.type = p$test.type,
-             R = 1000
+             R = 10000
             )$typeI.fout.pct
 })
 
 result <- params %>% 
   mutate(p.val = sims)
+
+
 ```
+
 ```{r, echo=FALSE}
 result %>% 
-  arrange(p.val) %>% 
-  kable(caption = "Monte-Carlo simulation for 32 Scenarios")
+  arrange(sd.ratio, sample.ratio, test.type, dist, n.total) %>% 
+  kable(caption = "Monte-Carlo simulatie voor 32 Scenario's")
 ```
+
+We kunnen de invloed van elk van de parameters bekijken door voor elke parameter een succes percentage te berekenen, dwz. het aantal gevallen waarbij de Monte-Carlo simulatie een "aanvaardbare" p-waarde oplevert.
+
+```{r}
+success.rate <- function(p.val.threshold) {
+  do.call("bind_rows", lapply(names(params), function(p) {
+    res.table <- result %>% 
+      mutate(p.val.ok = p.val < p.val.threshold) %>% 
+      filter(p.val.ok == TRUE) %>% 
+      group_by_at(.vars = c(p, "p.val.ok")) %>% 
+      count() %>% 
+      ungroup() %>% 
+      mutate(parameter = p,
+             success.pct = round(100 * n / 16, 0)) %>% 
+      rename_at(.vars = p, funs(paste0("value"))) %>% 
+      mutate(value = as.character(value)) %>% 
+      select(parameter, value, n, success.pct) 
+    
+  
+    res.table
+  })) %>% 
+    kable(caption = paste("Succes percentage voor p-waarde <= ", p.val.threshold))
+}
+```
+
+Voor een "aanvaardbare" p-waarde van 0.05 : 
+
+```{r echo=FALSE}
+success.rate(0.05) 
+```
+
+Voor een "aanvaardbare" p-waarde van 0.055 : 
+
+```{r echo=FALSE}
+success.rate(0.055)
+```
+
+Voor een "aanvaardbare" p-waarde van 0.06 : 
+
+```{r echo=FALSE}
+
+success.rate(0.06)
+```
+
+De invloed van het type test, voor de verschillende combinaties van de andere parameters. 
+
+```{r}
+result %>% 
+  spread(test.type, p.val) %>% 
+  mutate(winner = if_else(pooled < Welch, "pooled","Welch"),
+         diff = round(100 * (Welch - pooled) / if_else(pooled < Welch, Welch, pooled),1))
+```
+
+## Conclusie
+
+De Monte-Carlo simulatie is efficiënter 
+
+* voor een normale distributie dan voor een lognormale
+* wanneer de standaardafwijkingen van beide populaties gelijk zijn
+* wanneer de samples even groot zijn, en voldoende groot
+* voor gelijke standaardafwijkingen tov. verschillende standaardafwijkingen
+* een Welch t-test geeft betere resultaten dan een pooled, zeker wanneer de standaardafwijkingen verschillend zijn

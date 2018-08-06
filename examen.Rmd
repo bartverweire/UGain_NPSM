@@ -3,8 +3,12 @@ title: "Examen Niet-parametrische Statistische Methoden"
 author: "Bart Verweire"
 date: "2018 M08 2"
 output:
-  pdf_document: default
-  html_document: default
+  pdf_document: 
+    toc: true
+    toc_depth: 2
+  html_document: 
+    toc: true
+    toc_depth: 2
 fontsize: 10pt
 ---
 
@@ -20,6 +24,14 @@ library(scales)
 library(mgcv)
 library(knitr)
 ```
+
+# Vraag 1 - Geheugentest
+
+## Vraagstelling
+
+Er wordt een theorie mbt. het geheugen getest. In het onderzoek wordt het aantal woorden geteld dat een proefpersoon zich kan herinneren. Het experiment voorziet in 3 verschillende processen en 2 leeftijdscategorieën.
+
+De onderzoeksvraag is de volgende: _Is er een effect van de graad van verwerking op het aantal woorden dat de proefpersonen kunnen reproduceren en hangt dit effect mogelijks af van de leeftijd?_
 
 ```{r vraag_1, include=FALSE}
 load(file = "memory.rda")
@@ -110,7 +122,10 @@ kw.proc.younger <- kruskal.test(Words ~ Process, data = memory.younger)
 kw.proc.older <- kruskal.test(Words ~ Process, data = memory.older)
 kw.proc.age <- kruskal.test(memory.by.age.process)
 
-kw.result <- data.frame(name = c("Process","Process (younger)","Process (older)", "Process + Age"),
+kw.result <- data.frame(test.name = c("Process (no Age)",  
+                                      "Process (younger)",
+                                      "Process (older)", 
+                                      "Process + Age"),
                        p.value = c(kw.proc$p.value, 
                                    kw.proc.younger$p.value, 
                                    kw.proc.older$p.value, 
@@ -164,8 +179,6 @@ comp.df.process.older <- lm.df.process.older %>%
   inner_join(wc.df.process.older, by = c("subset1","subset2"))
 ```
 
-# Vraag 1 - Geheugentest
-
 ## Data Visualisatie
 
 ```{r, echo=FALSE,message=FALSE,warning=FALSE, fig.height = 2}
@@ -174,7 +187,7 @@ ggplot(memory, aes(interaction(Age, Process), Words)) +
   geom_boxplot()
 ```
 
-Uit de boxplots kan afgeleid worden dat er een verschil is in het aantal herinnerde woorden tussen het Counting proces en de andere processen (Imagery en Intentional). Voor de processen Imagery en Intentional lijkt er ook een verschil te zijn tussen jongeren en ouderen.
+Uit de boxplots van het aantal woorden voor de verschillende combinaties van Age en Process, kan afgeleid worden dat er een verschil is in het aantal gereproduceerde woorden tussen het Counting proces en de andere processen (Imagery en Intentional). Voor de processen Imagery en Intentional lijkt er ook een verschil te zijn tussen jongeren en ouderen. We bekijken dit probleem via Regressie, en via rang-gebaseerde methodes.
 
 ## Regressie
 
@@ -182,9 +195,9 @@ Bij een lineaire regressie zijn de veronderstellingen :
 
 * de observaties zijn onafhankelijk (in orde door random toewijzing)
 * de residuelen zijn normaal verdeeld
-* de variantie van de residuelen is onafhankelijk van de groep
+* de variantie van de residuelen is onafhankelijk van de groep (voor categorieke variabelen)
 
-We kunnen de lineaire regressie uitvoeren op verschillende wijzen :   
+De lineaire regressie is uitgevoerd op verschillende wijzen :   
 
 * onafhankelijk van de leeftijd
 * afhankelijk van proces en leeftijd, met en zonder interactie
@@ -204,12 +217,13 @@ as.data.frame(an.lm.int)
 Er een significant verschil is tussen het Counting proces enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via deze modellen niet spreken).
 In het algemeen is er ook een significante invloed van de leeftijd : jongeren onthouden meer woorden dan ouderen.
 
-```{r fig.height=2}
+```{r echo=FALSE,fig.height=2}
 par(mfrow=c(1,4), mar=c(1,1,1,1))
 plot(mem.lm.int)
 ``` 
 
-In de plot van het model (bv. voor het model met interactie) zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie redelijk goed voldaan zijn. De variantie niet onafhankelijk van de gefitte waarde, en de residuals zijn niet perfect normaal verdeeld, maar het verschil is aanvaardbaar.
+In de plot van het model (bv. voor het model met interactie) zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie niet perfect, maar toch redelijk goed voldaan zijn. 
+
 
 ## Rang-gebaseerde methodes
 
@@ -218,8 +232,7 @@ We gebruiken :
 * de Kruskal-Wallis test, op verschillende subsets (per Process, eventueel beperkt tot een specifieke leeftijdscategorie, of per Process en Age), om uit te maken of er al dan niet een subset met afwijkende distributie.
 * De Wilcoxon-Mann-Whitney two-sample test voor elke combinatie van 2 subsets. In de veronderstelling van locatie-shift gebruiken we de Hodges-Lehman schatter om het verschil in gemiddelde van de subsets te bepalen.
 
-De rank-gebaseerde methodes veronderstellen geen normaliteit. 
-Als we de Hodges-Lehman schatter gebruiken, dan is er uiteraard wel een veronderstelling van locatie-shift, dus in dit geval wordt wel verondersteld dat de varianties van de verschillende subsets gelijk zijn.
+De rank-gebaseerde methodes veronderstellen geen normaliteit of gelijke distributies, maar als we de Hodges-Lehman schatter gebruiken, dan is er uiteraard wel een veronderstelling van locatie-shift, dus in dit geval wordt wel verondersteld dat de varianties van de verschillende subsets gelijk zijn.
 
 ### Kruskal-Wallis testen
 
@@ -231,14 +244,15 @@ kw.result
 
 ### Wilcoxon-Mann-Whitney testen
 
-Uitgevoerd voor alle subsets per Process en Age, kunnen we hieruit de Hodges-Lehmann schatter, het betrouwbaarheids interval en de p-waarde berekeken.
-Volgende table bevat de resultaten, samen met deze van het lineair model met interactie.
+Uitgevoerd voor alle subsets per Process en Age, kunnen we hieruit de Hodges-Lehmann schatter, het betrouwbaarheids interval en de p-waarde berekenen.
+Onderstaande tabel bevat de resultaten, samen met deze van het lineair model met interactie (kolom diff).
 
 ```{r echo=FALSE}
 kable(comp.df.age.process, caption="Samenvattende tabel Lineair model + Wilcoxon test")
 ```
 
-Deze tabel geeft weer voor welke subsets een significant verschil kan worden aangeduid (in dit geval op basis van de bonferroni-aangepaste p-waarde).  
+Deze kolom **significant** geeft weer voor welke subsets een significant verschil kan worden aangeduid (in dit geval op basis van de bonferroni-aangepaste p-waarde). 
+Het via de lineaire regressie bepaalde verschil valt steeds binnen het betrouwbaarheidsinterval.
 
 ## Conclusie
 
@@ -247,12 +261,11 @@ Het Counting proces is significant verschillend van de Imagery en Intentional pr
 Het Intentional proces voor ouderen is significant minder efficiënt dan wat de jongeren presteren in voor het Imagery en Intentional proces.
 De methode via lineaire regressie laat enkel toe om na te gaan of er een significant effect is tov. een referentietoestand. De Wilcoxon-Mann-Whitney tests daarentegen laten toe om alle subsets met elkaar te vergelijken.
 
-
 # Vraag 2 - Werkloosheidsgraad
 
-Op basis van de cijfers van de werkloosheidsgraad wordt gevraagd om na te gaan of er een lange termijnseffect en een seizoenseffect is.
+## Vraagstelling
 
-## Data Visualisatie
+Op basis van de cijfers van de werkloosheidsgraad wordt gevraagd om na te gaan of er een langetermijnseffect en een seizoenseffect is.
 
 ```{r, include=FALSE}
 load(file = "unemploymentUS.rda")
@@ -260,30 +273,7 @@ load(file = "unemploymentUS.rda")
 unemploymentUS <- unemploymentUS %>% 
   mutate(date = ymd(paste(Year, Monthly, "01", sep="/")),
          date.number = Year + Monthly / 12)
-```
 
-```{r echo=FALSE,fig.height=2}
-ggplot(unemploymentUS, aes(date, Rate)) +
-  geom_point() +
-  scale_x_date(labels = date_format("%Y-%m"), date_breaks = "year") +
-  theme(axis.text.x = element_text(angle = 90)) +
-  ggtitle("Unemployment Rate in US")
-```
-
-We zien een duidelijk niet-lineair verloop. Er lijkt een periodieke component te zijn, maar de periode is groter dan 1 jaar.
-
-Gezien de niet-lineariteit is een gam-model aangewezen.
-Er zijn 2 onafhankelijke variabelen, namelijk Year en Monthly, maar we kunnen dit combineren in 1 tijdsvariabele. We kunnen een aantal verschillende modellen opstellen
-
-* Year als onafhankelijke variabele
-* Year en Monthly als onafhankelijke variabelen
-* Tijd (of numeriek : Year + Monthly/12) als onafhankelijke variabele
-
-De modellen kunnen vergeleken worden via AIC.
-
-## gam model met splines voor Year en Monthly
-
-```{r include=FALSE}
 ue.mod <- gam(Rate ~ s(Year) + s(Monthly), data = unemploymentUS)
 
 ue.mod.pred = predict(ue.mod, se.fit = TRUE)
@@ -357,14 +347,37 @@ an.result <- do.call("bind_rows",
 aic.ue <- AIC(ue.mod, ue.mod.datenr, ue.mod.year, ue.mod.year.lin)
 ```
 
+## Data Visualisatie
+
+```{r echo=FALSE,fig.height=3}
+ggplot(unemploymentUS, aes(date, Rate)) +
+  geom_point() +
+  scale_x_date(labels = date_format("%Y-%m"), date_breaks = "year") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Unemployment Rate in US")
+```
+
+We zien een duidelijk niet-lineair verloop. Er lijkt een periodieke component te zijn, maar de periode is groter dan 1 jaar.
+
+## Uitwerking
+
+Gezien de niet-lineariteit is een gam-model aangewezen.
+Er zijn 2 onafhankelijke variabelen, namelijk Year en Monthly, maar we kunnen dit combineren in 1 tijdsvariabele. We kunnen dus een aantal verschillende modellen opstellen
+
+* Year als onafhankelijke variabele
+* Year en Monthly als onafhankelijke variabelen
+* Tijd (of numeriek : Year + Monthly/12) als onafhankelijke variabele
+
+De modellen kunnen vergeleken worden via AIC.
+
 De functie anova geeft voor elk model aan of de coëfficienten significant zijn.
 
 ```{r echo=FALSE}
 an.result
 ```
 
-Er is een significant niet-lineair verband met Year, maar niet met Monthly. 
-In het zuiver lineaire model zijn de coëfficiënten niet significant. Zoals visueel al duidelijk was, kunnen we ervan uitgaan dat de afhankelijkheid niet-lineair is.
+Er is een significant niet-lineair verband met Year, maar niet met Monthly (p-value = 0.29). 
+In het zuiver lineaire model zijn de coëfficiënten zwak significant. Maar, zoals visueel al duidelijk was, kunnen we er beter van uitgaan dat de afhankelijkheid niet-lineair is.
 
 Het model op basis van tijd (Year + Monthly / 12) toont eveneens een significant niet-lineair verband.
 
@@ -375,7 +388,10 @@ aic.ue
 ```
 
 Op basis van de AIC, is het niet-lineair model op basis van Year + Monthly /12 de beste keuze.
-Alle resultaten in één grafiek.
+
+## Visualisatie van de modellen
+
+Zetten we alle resultaten in één grafiek: 
 
 ```{r echo=FALSE, fig.height=2}
 ggplot(unemploymentUS, aes(date.number, Rate)) +
@@ -411,10 +427,1186 @@ ggplot(unemploymentUS, aes(date.number, Rate)) +
 # plot(ue.mod.datenr.pred)
 ```
 
-
 ## Conclusie
 
 * Er is een significant niet-lineair verband tussen werkloosheidgraad en de tijd
+* De invloed van de jaarcomponent is veel belangrijker dan die van de maandcomponent.
 * De periode van de fluctuaties is groter dan 1 jaar. Er is geen seizoensinvloed.
 
+# Vraag 3 - Monte Carlo simulatie
+
+## Vraagstelling
+
+Opzetten van een Monte-Carlo simulatie voor een two-sample t-test evalueert onder de nulhypothese $H_{0} : \mu_{1} = \mu_{2}$/
+
+```{r lognorm, include=FALSE}
+# Random generator voor de Log-normale distributie
+rlnorm2 <- function(n, mu = 1, sd = 1) {
+  exp_sdlog_sq <- 1 + sd^2/mu^2
+  sdlog <- sqrt(log(exp_sdlog_sq))
+  meanlog <- log(mu/sqrt(exp_sdlog_sq))
+  
+  rlnorm(n, meanlog, sdlog)
+}
+
+# Density functie voor de Log-normale distributie
+dlnorm2 <- function(n, mu = 1, sd = 1) {
+  exp_sdlog_sq <- 1 + sd^2/mu^2
+  sdlog <- sqrt(log(exp_sdlog_sq))
+  meanlog <- log(mu/sqrt(exp_sdlog_sq))
+  
+  dlnorm(n, meanlog, sdlog)
+}
+
+sim.mctest <- function(dist = c("norm", "lnorm"), 
+                       n.total, 
+                       sample.ratio = 1, 
+                       mu = 1, 
+                       sd = 1, 
+                       sd.ratio = 1,
+                       test.type = c("pooled","Welch"),
+                       R = 10000,
+                       alpha = 0.05) {
+  
+  # calculate sample sizes
+  n1 <- n.total / (1 + 1/sample.ratio)
+  n2 <- n.total / (1 + sample.ratio)
+  
+  test.type <- test.type[1]
+  if(!(test.type %in% c("pooled","Welch"))) {
+    stop(paste("Invalid test type", test.type))
+  }
+  # valid test type
+  t.test.var.equal <- test.type == "pooled"
+  
+  mu1 <- mu
+  mu2 <- mu
+  sd1 <- sd
+  sd2 <- sd / sd.ratio
+  
+  dist <- dist[1]
+  if (!(dist %in% c("norm", "lnorm"))) {
+    stop("invalid distribution")
+  }
+  
+  # valid distribution type
+  if (dist == "norm") {
+    dist.fun <- rnorm
+  } else {
+    dist.fun <- rlnorm2
+  }
+  
+  cnt.typeI <- 0
+  for (i in 1:R) {
+    d1 <- dist.fun(n1, mu1, sd1)
+    d2 <- dist.fun(n2, mu2, sd2)
+    
+    pval <- t.test(d1, d2, var.equal = t.test.var.equal)$p.value
+    if (pval < alpha) {
+      cnt.typeI <- cnt.typeI + 1
+    }
+  }
+  
+  # output a list with all simulation parameters
+  list(
+    n.total = n.total,        # total sample size
+    n1 = n1,      # sample 1 size
+    n2 = n2,      # sample 2 size,
+    dist = dist,  # distribution type
+    test.type = test.type, # test type
+    d1 = d1,      # last d1 sample
+    d2 = d2,      # last d2 sample
+    mu1 = mu1,    
+    mu2 = mu2,
+    sd1 = sd1,
+    sd2 = sd2,
+    typeI.fout.pct = cnt.typeI / R
+  )
+  
+}
+
+
+```
+
+## Uitwerking
+
+Er wordt gevraagd om Monte-Carlo simulaties uit te voeren in een aantal verschillende situaties. Hiervoor definiëren we een functie, met volgende parameters (algemener dan in de vraagstelling)
+
+* dist (waarden **norm** of **lnorm**) : Data uit een normale/lognormale verdeling 
+* n.total : totaal aantal samples voor steekproef 1 en steekproef 2 samen
+* sample.ratio (default 1) : verhouding van het aantal samples in steekproef 1 tov. steekproef 2, bv.
+  + n.total = 200, sample.ratio = 3 leidt tot 150 samples in steekproef 1 en 50 in steekproef 2
+  + de default waarde leidt tot een gelijk aantal samples
+* mu : gemiddelde waarde voor beide steekproeven
+* sd : standaardafwijking voor steekproef 1
+* sd.ratio : verhouding van standaardafwijking voor steekproef 1 tov. die van steekproef 2
+  + sd.ratio = 5 betekent $\sigma_{1} = 1$ en $\sigma_{2} = 1/5$
+* test.type (waarden **pooled** of **Welch**) : geeft aan of de t-test gebruik maakt van de "pooled" variantie, of van de Welch benadering voor het aantal vrijheidsgraden.
+* R (default 10000) : aantal Monte-Carlo simulaties in elk scenario
+* alpha (default 0.05) : p-value drempelwaarde
+
+Om alle scenario's uit te voeren, bouwen we eerst een data frame op met alle combinaties van voorwaarden, en via lapply kunnen we de Monte-Carlo simulatie toepassen met de parameters in dit data frame.
+
+```{r include=FALSE}
+params <- expand.grid(
+  dist = c("norm","lnorm"),
+  sd.ratio = c(1, 5),
+  n.total = c(20, 200),
+  sample.ratio = c(1, 1/3),
+  test.type = c("pooled","Welch")
+)
+```
+
+```{r include=FALSE}
+sims <- sapply(1:nrow(params), function(i) {
+  p <- params[i,]
+  
+  p.val <- sim.mctest(n.total = p$n.total, 
+             sample.ratio = p$sample.ratio, 
+             dist = p$dist, 
+             mu = 1, 
+             sd = 1, 
+             sd.ratio = p$sd.ratio,
+             test.type = p$test.type,
+             R = 10000
+            )$typeI.fout.pct
+})
+
+result <- params %>% 
+  mutate(p.val = sims)
+```
+
+Onderstaande tabel geeft het resultaat weer, gesorteerd volgens de berekende p-waarde : 
+
+```{r, echo=FALSE}
+result %>% 
+  arrange(p.val) %>%
+  kable(caption = "Monte-Carlo simulatie voor 32 Scenario's")
+```
+
+Maar het is overzichtelijker om de invloed van elk van de parameters te bekijken, door voor elke parameter een succes percentage te berekenen, dwz. het aantal gevallen waarbij de Monte-Carlo simulatie een "aanvaardbare" p-waarde oplevert.
+
+```{r include=FALSE}
+success.rate <- function(p.val.threshold) {
+  do.call("bind_rows", lapply(names(params), function(p) {
+    res.table <- result %>% 
+      mutate(p.val.ok = p.val < p.val.threshold) %>% 
+      filter(p.val.ok == TRUE) %>% 
+      group_by_at(.vars = c(p, "p.val.ok")) %>% 
+      count() %>% 
+      ungroup() %>% 
+      mutate(parameter = p,
+             success.pct = round(100 * n / 16, 0)) %>% 
+      rename_at(.vars = p, funs(paste0("value"))) %>% 
+      mutate(value = as.character(value)) %>% 
+      select(parameter, value, n, success.pct) 
+    
+  
+    res.table
+  })) %>% 
+    kable(caption = paste("Succes percentage voor p-waarde <= ", p.val.threshold))
+}
+```
+
+Voor een "aanvaardbare" p-waarde van 0.055 : 
+
+```{r echo=FALSE}
+success.rate(0.055)
+```
+
+## Conclusie
+
+De Monte-Carlo simulatie is efficiënter 
+
+* voor een normale distributie dan voor een lognormale
+* wanneer de standaardafwijkingen van beide populaties gelijk zijn
+* wanneer de samples even groot zijn, en voldoende groot
+* voor gelijke standaardafwijkingen tov. verschillende standaardafwijkingen
+* een Welch t-test geeft betere resultaten dan een pooled-variance, zeker wanneer de standaardafwijkingen verschillend zijn
+
+\pagebreak
+
+# Appendix 1 - Geheugentest - Gedetailleerde Uitwerking
+
+## Data Visualisatie
+
+```{r}
+load(file = "memory.rda")
+memory.younger <- memory %>% 
+  filter(Age == "Younger")
+memory.older <- memory %>% 
+  filter(Age == "Older")
+```
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE, fig.width = 8, fig.height = 2}
+# Visualiseer data
+ggplot(memory, aes(Words, fill = Age)) +
+  geom_histogram(position = "dodge") +
+  facet_wrap(~ Process)
+
+ggplot(memory, aes(Words, fill = Process)) +
+  geom_histogram(position = "dodge") +
+  facet_wrap(~ Age)
+
+ggplot(memory, aes(interaction(Age, Process), Words)) +
+  geom_boxplot()
+```
+
+Uit de figuren kan afgeleid worden dat er een verschil is in het aantal gereproduceerde woorden tussen het Counting proces en de andere processen (Imagery en Intentional).
+Voor de processen Imagery en Intentional lijkt er ook een verschil te zijn tussen jongeren en ouderen.
+
+We onderzoeken nu of het aantal gereproduceerde woorden afhankelijk is van het proces, en of dit effect afhankelijk is van de leeftijd.
+
+## Regressie
+
+We voeren een lineaire regressie uit. Merk op dat de onafhankelijke variabelen alle categorische variabelen zijn.
+
+Bij een lineaire regressie zijn de veronderstellingen :
+
+* de observaties zijn onafhankelijk : we gaan ervan uit dat dit klopt, aangezien de onderzoekers de personen random in groepen verdeeld hebben.
+* de residuelen zijn normaal verdeeld
+* de variantie van de residuelen is onafhankelijk van de groep
+
+We kunnen de lineaire regressie uitvoeren op verschillende wijzen :   
+
+* onafhankelijk van de leeftijd
+* afhankelijk van proces en leeftijd, zonder interactie
+* afhankelijk van proces en leeftijd, met en zonder interactie tussen de variabelen Age en Process.
+
+### Test functie
+
+Om de resultaten van het lineaire model eenvoudiger te vergelijken met de resultaten van de wilcoxon testen (zie verder), definiëren we een functie om de resultaten van de lineaire regressie in een data.frame te bewaren.
+
+```{r}
+lm.tests <- function(model, test.data) {
+  pred <- predict(model, newdata = test.data, se.fit = TRUE)
+  res.table <- test.data %>% 
+    bind_cols(value = pred$fit,
+              lower = pred$fit - 1.96*pred$se.fit,
+              upper = pred$fit + 1.96*pred$se.fit) %>% 
+    mutate(subset = id)
+
+  ind.comb <- combn(1:length(res.table), 2) 
+  
+  pairwise.diffs <- lapply(1:ncol(ind.comb), function(i) { 
+    diff = res.table[ind.comb[1,i],"value"] - res.table[ind.comb[2,i],"value"]
+    
+    lm.val <- data.frame(
+      subset1 = res.table[ind.comb[1,i],"subset"],
+      subset2 = res.table[ind.comb[2,i],"subset"],
+      diff = round(diff, 3)
+    )
+    
+    lm.val
+  })
+  
+  do.call("bind_rows", pairwise.diffs)
+}
+```
+
+We zullen de test functie uitvoeren op de resultaten van de predict functie, met als data een data frame met de mogelijke combinaties van Age en Process, of van Process (afhankelijk van het model).
+
+```{r}
+test.data.age.process <- expand.grid(Age = c("Older","Younger"), 
+                                     Process = c("Counting","Imagery","Intentional")) %>% 
+  mutate(id = paste(Age, Process, sep = "."))
+test.data.process <- data.frame(Process = c("Counting","Imagery","Intentional")) %>% 
+  mutate(id = Process)
+test.data.process.younger <- data.frame(Process = c("Counting","Imagery","Intentional"), 
+                                        Age = "Younger") %>% 
+  mutate(id = Process)
+test.data.process.older <- data.frame(Process = c("Counting","Imagery","Intentional"), 
+                                      Age = "Older") %>% 
+  mutate(id = Process)
+                        
+test.data.age.process
+test.data.process.younger
+test.data.process.older
+```
+
+
+### Effect van het proces
+```{r}
+mem.lm.proc = lm(Words ~ Process, data = memory)
+```
+
+```{r}
+summary(mem.lm.proc)
+anova(mem.lm.proc)
+```
+
+Er is een significant verband tussen het aantal gereproduceerde woorden en het proces.
+
+Zowel de t-test als de F-test wijzen op een sifnificant verband is tussen het proces Counting enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via dit model niet spreken).
+
+In de plot van het model zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie redelijk goed voldaan zijn.  
+De variantie niet onafhankelijk van de gefitte waarde, en de residuals zijn niet perfect normaal verdeeld, maar het verschil is aanvaardbaar.
+
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+plot(mem.lm.proc)
+```
+```{r echo=FALSE}
+mem.lm.proc.pred <- predict(mem.lm.proc, se.fit = TRUE)
+mem.lm.proc.data <- memory %>% 
+  mutate(fit = mem.lm.proc.pred$fit,
+         l = mem.lm.proc.pred$fit - 1.96*mem.lm.proc.pred$se.fit,
+         u = mem.lm.proc.pred$fit + 1.96*mem.lm.proc.pred$se.fit)
+
+ggplot(mem.lm.proc.data, aes(Process, Words)) +
+  geom_point() +
+  geom_line(aes(x = as.numeric(Process), y = fit)) +
+  geom_ribbon(aes(as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1)
+``` 
+
+### Effect van leeftijd, zonder interactie
+
+We definiëren het volgende model 
+
+```{r}
+mem.lm <- lm(Words ~ Age + Process, data = memory)
+```
+
+```{r}
+summary(mem.lm)
+anova(mem.lm)
+```
+
+Zowel de t-test als de F-test wijzen op een sifnificant verband is tussen het proces Counting enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via dit model niet spreken).
+In het algemeen is er ook een significante invloed van de leeftijd : jongeren onthouden meer woorden dan ouderen.
+
+In de plot van het model zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie redelijk goed voldaan zijn. 
+
+De variantie niet onafhankelijk van de gefitte waarde, en de residuals zijn niet perfect normaal verdeeld, maar het verschil is aanvaardbaar.
+
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+plot(mem.lm)
+```
+
+```{r echo=FALSE}
+mem.lm.pred <- predict(mem.lm, se.fit = TRUE)
+mem.lm.data <- memory %>% 
+  mutate(fit = mem.lm.pred$fit,
+         l = mem.lm.pred$fit - 1.96*mem.lm.pred$se.fit,
+         u = mem.lm.pred$fit + 1.96*mem.lm.pred$se.fit)
+
+ggplot(mem.lm.data, aes(Process, Words, color = Age, fill = Age)) +
+  geom_point() +
+  geom_line(aes(x = as.numeric(Process), y = fit)) +
+  geom_ribbon(aes(as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1)
+``` 
+
+### Met interactie
+
+We kijken nu naar de invloed van de interactie tussen Age en Process, via volgend model :
+
+```{r}
+mem.lm.int <- lm(Words ~ Age * Process, data = memory)
+```
+
+```{r}
+summary(mem.lm.int)
+anova(mem.lm.int)
+```
+
+Ook de interactieterm is dus significant, vooral dan in geval van het Intentional Proces. Dit gaat ten koste van de algemene leeftijdsfactor, die nu niet significant is.
+
+
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+plot(mem.lm.int)
+```
+
+```{r echo=FALSE}
+mem.lm.int.pred <- predict(mem.lm.int, se.fit = TRUE)
+mem.lm.int.data <- memory %>% 
+  mutate(fit = mem.lm.int.pred$fit,
+         l = mem.lm.int.pred$fit - 1.96*mem.lm.int.pred$se.fit,
+         u = mem.lm.int.pred$fit + 1.96*mem.lm.int.pred$se.fit)
+
+ggplot(mem.lm.int.data, aes(Process, Words, color = Age, fill = Age)) +
+  geom_point() +
+  geom_line(aes(as.numeric(Process), fit)) +
+  geom_ribbon(aes(x = as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1)
+```
+
+Merk op dat het model met interactie er op neer komt dat voor elke combinatie (Age, Process) het gemiddelde genomen wordt.
+
+
+We gebruiken het model om het aantal woorden te voorspellen.
+
+```{r}
+pred.lm.int <- predict(mem.lm.int, newdata = test.data.age.process)
+res.table <- test.data.age.process %>% 
+  bind_cols(value = pred.lm.int)
+```
+
+En dit resultaat vergelijken we met een tabel met de gemiddelden : 
+
+```{r}
+avg.table.age.process <- memory %>% 
+  group_by(Age, Process) %>% 
+  summarize(mean.age.process = mean(Words))
+```
+
+Beide resultaten kunnen vergeleken worden door de resultaten te joinen
+
+```{r}
+comp.table <- res.table %>% 
+  inner_join(avg.table.age.process, by = c("Age","Process"))
+comp.table
+```
+
+### Keuze van het model
+
+```{r}
+AIC(mem.lm, mem.lm.int)
+```
+
+Het model met de interactie term levert de laagste AIC, en is dus te verkiezen.
+
+## Rang-gebaseerde methodes
+
+De Kruskal-Wallis test laat toe om te kijken of er een significant verschil is in het aantal gereproduceerde woorden. We kunnen de test uitvoeren op
+
+* de subsets per Process
+* de subsets per Process en Age
+
+Deze test zal aanduiden of er een significant verschil is in het gemiddeld aantal gereproduceerde woorden, maar leert ons niets over het effectieve verschil. Hiervoor moeten we dan de Wilcoxon-Mann-Whitney two-sample tests uitvoeren per 2 subsets.  
+Aan de hand van de Hodges-Lehman schatter kunnen we dan bekijken wat het verschil is in het aantal gereproduceerde woorden tussen de verschillende subsets.
+
+De rank-gebaseerde methodes veronderstellen geen normaliteit. 
+Als we de Hodges-Lehman schatter gebruiken, dan is er uiteraard wel een veronderstelling van locatie-shift, dus in dit geval wordt wel verondersteld dat de varianties van de verschillende subsets gelijk zijn.
+
+
+### Voorbereiding - data splitsen
+
+We kunnen de Kruskal-Wallis en Wilcoxon tests uitvoeren op verschillende subsets. Bv.  
+
+* subsets per proces
+* subsets per leeftijd (invloed van process, voor een specifieke leeftijdscategorie)
+* subsets per proces en leeftijd (invloed van proces en leeftijd)
+
+Daarvoor definiëren we de subsets als volgt : 
+
+```{r}
+memory.by.age.process <- lapply(split(memory, list(memory$Age, memory$Process)), '[[', "Words")
+memory.by.age <- lapply(split(memory, memory$Age), '[[', "Words")
+memory.by.process <- lapply(split(memory, memory$Process), '[[', "Words")
+memory.by.process.older <- lapply(split(memory.older, memory.older$Process), '[[', "Words")
+memory.by.process.younger <- lapply(split(memory.younger, memory.younger$Process), '[[', "Words")
+```
+
+Om efficiënter de verschillende Wilcoxon-Mann-Whitney testen te kunnen uitvoeren, definiëren we de functie : 
+
+```{r}
+wc.tests <- function(subsets, adjust.method = "bonferroni") {
+  ind.comb <- combn(1:length(subsets), 2)
+  
+  pw.result <- data.frame()
+  
+  pairwise.tests <- lapply(1:ncol(ind.comb), function(i) { 
+    wc.test = wilcox.test(subsets[[ind.comb[1,i]]],
+                          subsets[[ind.comb[2,i]]], conf.int = TRUE)
+    
+    pw.test <- data.frame(
+      subset1 = names(subsets)[ind.comb[1,i]],
+      subset2 = names(subsets)[ind.comb[2,i]],
+      p.value = wc.test$p.value,
+      lower = round(wc.test$conf.int[1],3),
+      upper = round(wc.test$conf.int[2],3),
+      location.shift = round(wc.test$estimate,3)
+    )
+    
+    pw.test
+  })
+  
+  # Add adjusted p-values, based on the chosen method
+  pw.df <- do.call("bind_rows", pairwise.tests)
+  pw.df$p.value.adj <- p.adjust(pw.df$p.value, adjust.method)
+  
+  pw.df
+}
+```
+
+
+### Kruskal-Wallis testen
+
+#### Per process
+
+De Kruskal-Wallis test voor de subsets per Process
+
+```{r}
+kruskal.test(memory.by.process)
+```
+Zonder rekening te houden met leeftijd, is er een significant bewijs dat minstens 1 process een verschillend gemiddelde heeft voor het aantal gereproduceerde woorden.
+
+
+#### Effect van leeftijd
+
+Om te controleren of er een effect is van leeftijd, doen we dezelfde test opnieuw, maar eens voor de data overeenkomend met jongeren, en de tweede keer voor de data van de oudere testpersonen.
+
+```{r}
+kruskal.test(Words ~ Process, data = memory.younger)
+kruskal.test(Words ~ Process, data = memory.older)
+```
+
+Het effect is meer uitgesproken voor jongeren, maar in beide gevallen significant.
+
+#### Effect van proces en leeftijd
+
+Overeenkomend met de interactie term in het lineaire model, kunnen we de Kruskal-Wallis test ook uitvoeren op de subsets per combinatie van Process en Age.
+
+```{r}
+kruskal.test(memory.by.age.process)
+```
+
+
+### Wilcoxon-Mann-Whitney testen
+
+Uitgevoerd voor alle combinaties van Process en Age : 
+
+```{r message=FALSE,warning=FALSE}
+wc.df.age.process <- wc.tests(memory.by.age.process) %>% 
+  mutate(significant = p.value.adj < 0.05 )
+wc.df.age.process%>% 
+  kable(caption = "Wilcoxon-Mann-Whitney tests voor combinaties (Age, Process)")
+```
+
+Voor alle Processen, gelimiteerd tot de jongeren
+
+```{r message=FALSE,warning=FALSE}
+wc.df.process.younger <- wc.tests(memory.by.process.younger) %>% 
+  mutate(significant = p.value.adj < 0.05)
+wc.df.process.younger%>% 
+  kable(caption = "Wilcoxon-Mann-Whitney tests voor processen, beperkt tot jongeren")
+```
+
+Voor alle Processen, gelimiteerd tot de ouderen 
+
+```{r message=FALSE,warning=FALSE}
+wc.df.process.older <- wc.tests(memory.by.process.older) %>% 
+  mutate(significant = p.value.adj < 0.05)
+wc.df.process.older %>% 
+  kable(caption = "Wilcoxon-Mann-Whitney tests voor processen, beperkt tot ouderen")
+```
+
+
+
+## Vergelijking van de methodes
+
+We kunnen dit vergelijken met de resultaten van het lineaire model : 
+
+```{r message=FALSE,warning=FALSE}
+lm.df.age.process <- lm.tests(mem.lm.int, test.data.age.process)
+lm.df.process.younger <- lm.tests(mem.lm.int, test.data.process.younger)
+lm.df.process.older <- lm.tests(mem.lm.int, test.data.process.older)
+```
+
+via een inner join met het resultaat van de Wilcoxon-Mann-Whitney tests : 
+
+Voor de jongeren : 
+
+```{r message=FALSE,warning=FALSE}
+comp.df.process.younger <- lm.df.process.younger %>% 
+  inner_join(wc.df.process.younger, by = c("subset1","subset2"))
+comp.df.process.younger %>% 
+  kable(caption = "Vergelijking lm met wilcoxon test, jongeren")
+```
+
+Voor de ouderen
+
+```{r message=FALSE,warning=FALSE}
+comp.df.process.older <- lm.df.process.older %>% 
+  inner_join(wc.df.process.older, by = c("subset1","subset2"))
+comp.df.process.older %>% 
+  kable(caption = "Vergelijking lm met wilcoxon test, ouderen")
+```
+
+Voor de combinaties (Age, Process)
+
+```{r message=FALSE,warning=FALSE}
+comp.df.age.process <- lm.df.age.process %>% 
+  inner_join(wc.df.age.process, by = c("subset1","subset2"))
+comp.df.age.process %>% 
+  kable(caption = "Vergelijking lm met wilcoxon test, combinaties Age, Process")
+```
+
+Deze tabel geeft weer voor welke subsets een significant verschil kan worden aangeduid (in dit geval op basis van de bonferroni-aangepaste p-waarde).  
+Het Counting proces is significant verschillend van de Imagery en Intentional processen, voor elke leeftijdscategorie.  
+Het Intentional proces voor ouderen is significant minder efficiënt dan wat de jongeren presteren in voor het Imagery en Intentional proces.
+
+## Conclusie
+
+Beide methodes geven aan dat er een significant effect is van het proces, en van de leeftijd.  
+De methode via lineaire regressie laat enkel toe om na te gaan of er een significant effect is tov. een referentietoestand. De Wilcoxon-Mann-Whitney tests daarentegen laten toe om alle subsets met elkaar te vergelijken.
+
+\pagebreak
+
+# Appendix 2 - Werkloosheid - Gedetailleerde uitwerking
+
+## Data Visualisatie
+
+```{r, include=FALSE}
+load(file = "unemploymentUS.rda")
+
+unemploymentUS <- unemploymentUS %>% 
+  mutate(date = ymd(paste(Year, Monthly, "01", sep="/")),
+         date.number = Year + Monthly / 12)
+```
+
+```{r echo=FALSE,fig.height=2}
+ggplot(unemploymentUS, aes(date, Rate)) +
+  geom_point() +
+  scale_x_date(labels = date_format("%Y-%m"), date_breaks = "year") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Unemployment Rate in US")
+```
+
+We zien een duidelijk niet-lineair verloop. Er lijkt een periodieke component te zijn, maar de periode is groter dan 1 jaar.
+
+Gezien de niet-lineariteit is een gam-model aangewezen.
+Er zijn 2 onafhankelijke variabelen, namelijk Year en Monthly. We kunnen een aantal verschillende modellen opstellen 
+
+* Year
+* Year en Monthly als onafhankelijke variabelen
+* effectieve datum (of numeriek : Year + Monthly/12) als onafhankelijke variabele
+
+De modellen kunnen vergeleken worden via AIC.
+
+## gam model met splines voor Year en Monthly
+
+```{r}
+ue.mod <- gam(Rate ~ s(Year) + s(Monthly), data = unemploymentUS)
+summary(ue.mod)
+anova(ue.mod)
+```
+
+Er is een significant verband met Year, maar niet met Monthly.
+
+```{r echo=FALSE, fig.height=2}
+ue.mod.pred = predict(ue.mod, se.fit = TRUE)
+ue.mod.data <- unemploymentUS %>% 
+  mutate(fit = ue.mod.pred$fit,
+         l = ue.mod.pred$fit - 1.96 * ue.mod.pred$se.fit,
+         u = ue.mod.pred$fit + 1.96 * ue.mod.pred$se.fit,
+         resid = residuals(ue.mod))
+
+ggplot(ue.mod.data, aes(Year + Monthly / 12)) +
+  geom_point(aes(y = Rate)) +
+  geom_line(aes(y = fit), color = "red") +
+  geom_ribbon(aes(ymin = l, ymax = u), fill = "red", alpha = 0.1) +
+  scale_x_continuous(breaks = 1970:1990) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r echo=FALSE, fig.height=2}
+par(mfrow=c(1,2))
+plot(ue.mod, residuals = TRUE, select = 1, shade = TRUE)
+plot(ue.mod, residuals = TRUE, select = 2, shade = TRUE)
+```
+
+## gam model met enkel Year
+
+```{r}
+ue.mod.year <- gam(Rate ~ s(Year), data = unemploymentUS)
+summary(ue.mod.year)
+anova(ue.mod.year)
+```
+
+De invloed van Year is significant.
+Het model heeft een iets lagere AIC dan het model met Year en Monthly.
+
+```{r}
+AIC(ue.mod, ue.mod.year)
+``` 
+
+```{r echo=FALSE, fig.height=2}
+ue.mod.year.pred = predict(ue.mod.year, se.fit = TRUE)
+
+ue.mod.year.data <- unemploymentUS %>% 
+  mutate(fit = ue.mod.year.pred$fit,
+         l = ue.mod.year.pred$fit - 1.96 * ue.mod.year.pred$se.fit,
+         u = ue.mod.year.pred$fit + 1.96 * ue.mod.year.pred$se.fit,
+         resid = residuals(ue.mod.year))
+
+ggplot(ue.mod.year.data, aes(Year + Monthly / 12)) +
+  geom_point(aes(y = Rate)) +
+  geom_line(aes(y = fit), color = "red") +
+  geom_ribbon(aes(ymin = l, ymax = u), fill = "red", alpha = 0.1) +
+  scale_x_continuous(breaks = 1970:1990) +
+  theme(axis.text.x = element_text(angle = 90))
+
+plot(ue.mod.year, residuals = TRUE)
+
+```
+
+
+## Is het model significant niet-lineair ?
+```{r}
+ue.mod.year.lin <- gam(Rate ~ Year, data = unemploymentUS)
+summary(ue.mod.year.lin)
+anova(ue.mod.year.lin)
+```
+
+In het zuiver lineaire model zijn de coëfficiënten niet significant. Zoals visueel al duidelijk was, kunnen we ervan uitgaan dat de afhankelijkheid niet-lineair is.
+
+```{r echo=FALSE, fig.height=2}
+ue.mod.year.lin.pred = predict(ue.mod.year.lin, se.fit = TRUE)
+residuals(ue.mod.year.lin.pred)
+ue.mod.year.lin.data <- unemploymentUS %>% 
+  mutate(fit = ue.mod.year.lin.pred$fit,
+         l = ue.mod.year.lin.pred$fit - 1.96 * ue.mod.year.lin.pred$se.fit,
+         u = ue.mod.year.lin.pred$fit + 1.96 * ue.mod.year.lin.pred$se.fit)
+
+ggplot(ue.mod.year.lin.data, aes(Year + Monthly / 12)) +
+  geom_point(aes(y = Rate)) +
+  geom_line(aes(y = fit), color = "red") +
+  geom_ribbon(aes(ymin = l, ymax = u), fill = "red", alpha = 0.1) +
+  scale_x_continuous(breaks = 1970:1990) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+## Gam model op tijd
+
+Aan gezien de periode groter is dan een jaar, kan het effect van maand misschien beter inbegrepen worden door niet te fitten op Year, maar op Year + Monthly / 12
+
+```{r}
+ue.mod.datenr <- gam(Rate ~ s(date.number), data = unemploymentUS)
+summary(ue.mod.datenr)
+anova(ue.mod.datenr)
+```
+
+De coëfficiënten in dit model zijn eveneens significant
+
+```{r echo=FALSE, fig.height=2}
+ue.mod.datenr.pred = predict(ue.mod.datenr, se.fit = TRUE)
+
+ue.mod.datenr.data <- unemploymentUS %>% 
+  mutate(fit = ue.mod.datenr.pred$fit,
+         l = ue.mod.datenr.pred$fit - 1.96 * ue.mod.datenr.pred$se.fit,
+         u = ue.mod.datenr.pred$fit + 1.96 * ue.mod.datenr.pred$se.fit)
+
+ggplot(ue.mod.datenr.data, aes(Year + Monthly / 12)) +
+  geom_point(aes(y = Rate)) +
+  geom_line(aes(y = fit), color = "red") +
+  geom_ribbon(aes(ymin = l, ymax = u), fill = "red", alpha = 0.1) +
+  scale_x_continuous(breaks = 1970:1990) +
+  theme(axis.text.x = element_text(angle = 90))
+
+# plot(ue.mod.datenr.pred)
+```
+
+## Vergelijking
+
+```{r}
+AIC(ue.mod, ue.mod.datenr, ue.mod.year)
+```
+
+Het model op basis van Year + Monthly /12 is het beste
+
+## Conclusie
+
+* Er is een niet-lineair verband tussen werkloosheidgraad en de tijd
+* De periode van de fluctuaties is groter dan 1 jaar, dus de invloed van het jaar is significant groter dan deze van de maand 
+
+\pagebreak
+
+# Appendix 3 - Monte Carlo simulatie - Gedetailleerde uitwerking
+
+## Voorbereiding: Lognormale verdeling
+
+Voor de lognormale verdeling zullen we een functie definiëren die gebruik maakt van de functie rlnorm. We hadden ook de voorgestelde functie kunnen gebruiken, maar om beter het verband tussen normale en lognormale te begrijpen hebben we ervoor gekozen om de functie rlnorm wat dieper te onderzoeken.
+
+
+```{r, eval=FALSE}
+rlnorm(n, meanlog = 0, sdlog = 1)
+```
+
+Hierin zijn meanlog en sdlog het gemiddelde en de standaardafwijking van de normale verdeling die de  basis vormt voor de lognormale verdeling, d.w.z.
+
+als 
+
+$$X \sim N(\mu, \sigma ^2)$$
+
+dan is 
+
+$$Y = e^X \sim LogN(\mu, \sigma ^2)$$
+
+Hierbij zijn $\mu$ en $\sigma$ de parameters van de geassocieerde normale verdeling. 
+
+Het zou natuurlijk interessanter zijn om deze gemiddelden uit te drukken in functie van gemiddelde en standaardafwijking van de log-normale verdeling zelf.
+
+Als we het gemiddelde en de standaardafwijking van de normale verdeling aanduiden als $\mu_{N}$ en $\sigma_{N}$, dan zijn gemiddelde en standaardafwijking van de lognormale verdeling gegeven door
+
+$$\mu_{L} = e^{\mu_{N} + \frac{\sigma_{N}}{2}}$$
+$$\sigma_{L}^2 = \left( e^{\sigma_{N}^2} - 1 \right)e^{2\mu_{N} + \sigma_{N}^2}$$
+
+Beide formules kunnen herwerkt worden tot
+
+$$
+\begin{aligned}
+e^{\mu_{N}} &= \mu_{L}e^{-{\frac{\sigma_{N}^2}{2}}} \\
+\mu_{N} &= ln(\mu_{L})-{\frac{\sigma_{N}^2}{2}} \\
+\end{aligned}
+$$
+
+en
+
+$$\sigma_{L}^2 = \left( e^{\sigma_{N}^2} - 1 \right)\mu_{L}^2$$
+
+Dit laat toe om de parameters van de normale distributie te schrijven in functie van deze van de log-normale distributie : 
+
+$$
+\begin{aligned}
+e^{\sigma_{N}^2} &= 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \\
+\sigma_{N} &= \sqrt{ln\left( 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \right)} \\
+e^{\mu_{N}} &= \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \\
+\mu_{N} &= ln\left( \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \right) \\
+\end{aligned}
+$$
+
+Aan de hand hiervan definiëren we de volgende functies
+
+```{r}
+# Random generator voor de Log-normale distributie
+rlnorm2 <- function(n, mu = 1, sd = 1) {
+  exp_sdlog_sq <- 1 + sd^2/mu^2
+  sdlog <- sqrt(log(exp_sdlog_sq))
+  meanlog <- log(mu/sqrt(exp_sdlog_sq))
+  
+  rlnorm(n, meanlog, sdlog)
+}
+
+# Density functie voor de Log-normale distributie
+dlnorm2 <- function(n, mu = 1, sd = 1) {
+  exp_sdlog_sq <- 1 + sd^2/mu^2
+  sdlog <- sqrt(log(exp_sdlog_sq))
+  meanlog <- log(mu/sqrt(exp_sdlog_sq))
+  
+  dlnorm(n, meanlog, sdlog)
+}
+```
+
+We kunnen dit testen op een aantal verschillende combinaties voor de parameters $\mu_{L}$ en $\sigma_{L}$.
+Eerst maken we een data frame met verschillende combinaties voor $\mu_{L}$ en $\sigma_{L}$. Dan gebruiken we de functie sapply om de gemiddelde waarden te berekenen voor een sample.
+Als de functie goed gedefinieerd is, moeten de gemeten gemiddelde waarde en standaardafwijking overeenkomen met de waarden van de parameters.
+
+De functie sapply resulteert in een matrix, waarbij de eerste 2 rijen de parameters weergeven, en de laatste 2 rijen de (afgeronde) gemeten waarden.
+
+```{r}
+test.params <- expand.grid(c(1,2,3),c(0.5,1,2))
+
+sapply(1:nrow(test.params), function(i) {
+  mu <- test.params[i,1]
+  sd <- test.params[i,2]
+  test.data <- rlnorm2(100000, mu,sd)
+  list(mu = mu, sd = sd, sample_mu = round(mean(test.data),1), sample_sd = round(sd(test.data),1))
+})
+
+```
+
+De gemeten waarde komt inderdaad overeen met de waarden van de parameters, dus de functie werkt zoals het hoort.
+
+## Monte-Carlo simulatie functie
+
+Er wordt gevraagd om Monte-Carlo simulaties uit te voeren in een aantal verschillende situaties. Hiervoor definiëren we een functie, met volgende parameters (algemener dan in de vraagstelling)
+
+* dist (waarden **norm** of **lnorm**) : Data uit een normale/lognormale verdeling 
+* n.total : totaal aantal samples voor steekproef 1 en steekproef 2 samen
+* sample.ratio (default 1) : verhouding van het aantal samples in steekproef 1 tov. steekproef 2, bv.
+  + n.total = 200, sample.ratio = 3 leidt tot 150 samples in steekproef 1 en 50 in steekproef 2
+  + de default waarde leidt tot een gelijk aantal samples
+* mu : gemiddelde waarde voor beide steekproeven
+* sd : standaardafwijking voor steekproef 1
+* sd.ratio : verhouding van standaardafwijking voor steekproef 1 tov. die van steekproef 2
+  + sd.ratio = 5 betekent $\sigma_{1} = 1$ en $\sigma_{2} = 1/5$
+* test.type (waarden **pooled** of **Welch**) : geeft aan of de t-test gebruik maakt van de "pooled" variantie, of van de Welch benadering voor het aantal vrijheidsgraden.
+* R (default 10000) : aantal Monte-Carlo simulaties in elk scenario
+* alpha (default 0.05) : p-value drempelwaarde
+
+De functie geeft een list terug met daarin de gebruikte (afgeleide) parameterwaarden en de berekende waarde voor de typeI fouten tov. drempelwaarde alpha.
+De list bevat daarnaast ook het laatste paar steekproeven, voor controle.
+
+```{r}
+sim.mctest <- function(dist = c("norm", "lnorm"), 
+                       n.total, 
+                       sample.ratio = 1, 
+                       mu = 1, 
+                       sd = 1, 
+                       sd.ratio = 1,
+                       test.type = c("pooled","Welch"),
+                       R = 10000,
+                       alpha = 0.05) {
+  
+  # calculate sample sizes
+  n1 <- n.total / (1 + 1/sample.ratio)
+  n2 <- n.total / (1 + sample.ratio)
+  
+  test.type <- test.type[1]
+  if(!(test.type %in% c("pooled","Welch"))) {
+    stop(paste("Invalid test type", test.type))
+  }
+  # valid test type
+  t.test.var.equal <- test.type == "pooled"
+  
+  mu1 <- mu
+  mu2 <- mu
+  sd1 <- sd
+  sd2 <- sd / sd.ratio
+  
+  dist <- dist[1]
+  if (!(dist %in% c("norm", "lnorm"))) {
+    stop("invalid distribution")
+  }
+  
+  # valid distribution type
+  if (dist == "norm") {
+    dist.fun <- rnorm
+  } else {
+    dist.fun <- rlnorm2
+  }
+  
+  cnt.typeI <- 0
+  for (i in 1:R) {
+    d1 <- dist.fun(n1, mu1, sd1)
+    d2 <- dist.fun(n2, mu2, sd2)
+    
+    pval <- t.test(d1, d2, var.equal = t.test.var.equal)$p.value
+    if (pval < alpha) {
+      cnt.typeI <- cnt.typeI + 1
+    }
+  }
+  
+  # output a list with all simulation parameters
+  list(
+    n.total = n.total,        # total sample size
+    n1 = n1,      # sample 1 size
+    n2 = n2,      # sample 2 size,
+    dist = dist,  # distribution type
+    test.type = test.type, # test type
+    d1 = d1,      # last d1 sample
+    d2 = d2,      # last d2 sample
+    mu1 = mu1,    
+    mu2 = mu2,
+    sd1 = sd1,
+    sd2 = sd2,
+    typeI.fout.pct = cnt.typeI / R
+  )
+  
+}
+```
+
+
+## Test functie
+Om deze functie te testen definiëren we volgende functie.
+Deze functie resulteert in een ggplot object met daarin de (density) histogrammen van de laatste steekproeven, de theoretische density functie, en de berekende p-value.
+
+
+```{r}
+eval.mctest <- function(test) {
+  plot_data <- rbind(data.frame(sample = "sample 1", x = test$d1), data.frame(sample = "sample 2", x = test$d2))
+  
+  # valid distribution type
+  if (test$dist == "norm") {
+    dist.fun <- dnorm
+  } else {
+    dist.fun <- dlnorm2
+  }
+  
+  dist_data_1 <- tibble(dist = "dist 1", 
+                        x = seq(test$mu1 - 3*test$sd1, test$mu1 + 3 * test$sd1, by = 0.1),
+                        y = dist.fun(x, test$mu1, test$sd1))
+  dist_data_2 <- tibble(dist = "dist 2", 
+                        x = seq(test$mu2 - 3*test$sd2, test$mu2 + 3 * test$sd2, by = 0.1),
+                        y = dist.fun(x, test$mu2, test$sd2))
+  
+  display_range <- c(min(c(min(dist_data_1$x), min(dist_data_2$x))),
+                     max(c(max(dist_data_1$x), max(dist_data_2$x))))
+  
+  p <- ggplot(plot_data, aes(x)) +
+    geom_histogram(aes(y = ..density.., fill = sample), position = "dodge", binwidth = 0.1, stat) +
+    geom_line(aes(x, y, color = dist), data = dist_data_1) +
+    geom_line(aes(x, y, color = dist), data = dist_data_2) +
+    coord_cartesian(xlim = display_range) +
+    ggtitle(paste("Test type: ", test$test.type, "\np-value", test$typeI.fout.pct))
+  
+  p
+}
+```
+
+## Tests
+
+We voeren een aantal tests uit, met grote getallen, omdat in dit geval de berekende p-waarde de verwachte p-waarde van 0.05 goed moet benaderen.
+
+Een eerste test, met de normale verdeling 
+
+```{r}
+test1 <- sim.mctest(n.total = 20000, 
+                    sample.ratio = 1, 
+                    dist = "norm", 
+                    mu = 1, 
+                    sd = 1, 
+                    sd.ratio = 1,
+                    test.type = "Welch",
+                    R = 1000,
+                    alpha = 0.05)
+eval.mctest(test1)
+
+```
+
+Een tweede test, met de log-normale verdeling
+
+```{r}
+test2 <- sim.mctest(n.total = 20000, 
+                    sample.ratio = 1, 
+                    dist = "lnorm", 
+                    mu = 1, 
+                    sd = 1, 
+                    sd.ratio = 1,
+                    test.type = "Welch",
+                    R = 1000,
+                    alpha = 0.05)
+eval.mctest(test2)
+
+```
+
+
+Een test, met de normale verdeling en de pooled-variance two-sample t-test.
+
+```{r}
+test3 <- sim.mctest(n.total = 20000, 
+                    sample.ratio = 1, 
+                    dist = "norm", 
+                    mu = 1, 
+                    sd = 1, 
+                    sd.ratio = 1,
+                    test.type = "pooled",
+                    R = 1000,
+                    alpha = 0.05)
+eval.mctest(test3)
+
+```
+
+Een test, met de normale verdeling en de pooled-variance two-sample t-test en een log-normale verdeling.
+
+```{r}
+test4 <- sim.mctest(n.total = 20000, 
+                    sample.ratio = 1, 
+                    dist = "lnorm", 
+                    mu = 1, 
+                    sd = 1, 
+                    sd.ratio = 1,
+                    test.type = "pooled",
+                    R = 1000,
+                    alpha = 0.05)
+eval.mctest(test4)
+
+```
+
+## Scenario's
+
+Om alle scenario's uit te voeren, bouwen we eerst een data frame op met alle combinaties van voorwaarden : 
+
+```{r}
+params <- expand.grid(
+  dist = c("norm","lnorm"),
+  sd.ratio = c(1, 5),
+  n.total = c(20, 200),
+  sample.ratio = c(1, 1/3),
+  test.type = c("pooled","Welch")
+)
+```
+
+En via lapply kunnen we de Monte-Carlo simulatie toepassen met de parameters in dit data frame.
+
+```{r}
+sims <- sapply(1:nrow(params), function(i) {
+  p <- params[i,]
+  
+  p.val <- sim.mctest(n.total = p$n.total, 
+             sample.ratio = p$sample.ratio, 
+             dist = p$dist, 
+             mu = 1, 
+             sd = 1, 
+             sd.ratio = p$sd.ratio,
+             test.type = p$test.type,
+             R = 10000
+            )$typeI.fout.pct
+})
+
+result <- params %>% 
+  mutate(p.val = sims)
+
+
+```
+
+```{r, echo=FALSE}
+result %>% 
+  arrange(sd.ratio, sample.ratio, test.type, dist, n.total) %>% 
+  kable(caption = "Monte-Carlo simulatie voor 32 Scenario's")
+```
+
+We kunnen de invloed van elk van de parameters bekijken door voor elke parameter een succes percentage te berekenen, dwz. het aantal gevallen waarbij de Monte-Carlo simulatie een "aanvaardbare" p-waarde oplevert.
+
+```{r}
+success.rate <- function(p.val.threshold) {
+  do.call("bind_rows", lapply(names(params), function(p) {
+    res.table <- result %>% 
+      mutate(p.val.ok = p.val < p.val.threshold) %>% 
+      filter(p.val.ok == TRUE) %>% 
+      group_by_at(.vars = c(p, "p.val.ok")) %>% 
+      count() %>% 
+      ungroup() %>% 
+      mutate(parameter = p,
+             success.pct = round(100 * n / 16, 0)) %>% 
+      rename_at(.vars = p, funs(paste0("value"))) %>% 
+      mutate(value = as.character(value)) %>% 
+      select(parameter, value, n, success.pct) 
+    
+  
+    res.table
+  })) %>% 
+    kable(caption = paste("Succes percentage voor p-waarde <= ", p.val.threshold))
+}
+```
+
+Voor een "aanvaardbare" p-waarde van 0.05 : 
+
+```{r echo=FALSE}
+success.rate(0.05) 
+```
+
+Voor een "aanvaardbare" p-waarde van 0.055 : 
+
+```{r echo=FALSE}
+success.rate(0.055)
+```
+
+Voor een "aanvaardbare" p-waarde van 0.06 : 
+
+```{r echo=FALSE}
+
+success.rate(0.06)
+```
+
+De invloed van het type test, voor de verschillende combinaties van de andere parameters. 
+
+```{r}
+result %>% 
+  spread(test.type, p.val) %>% 
+  mutate(winner = if_else(pooled < Welch, "pooled","Welch"),
+         diff = round(100 * (Welch - pooled) / if_else(pooled < Welch, Welch, pooled),1))
+```
+
+## Conclusie
+
+De Monte-Carlo simulatie is efficiënter 
+
+* voor een normale distributie dan voor een lognormale
+* wanneer de standaardafwijkingen van beide populaties gelijk zijn
+* wanneer de samples even groot zijn, en voldoende groot
+* voor gelijke standaardafwijkingen tov. verschillende standaardafwijkingen
+* een Welch t-test geeft betere resultaten dan een pooled, zeker wanneer de standaardafwijkingen verschillend zijn
 

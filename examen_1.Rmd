@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 options(width = 240)
 ```
 
-```{r libraries, include=FALSE}
+```{r libraries}
 library(tidyverse)
 library(knitr)
 ```
@@ -21,7 +21,7 @@ library(knitr)
 
 ## Data Visualisatie
 
-```{r, include=FALSE}
+```{r}
 load(file = "memory.rda")
 memory.younger <- memory %>% 
   filter(Age == "Younger")
