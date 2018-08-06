@@ -5,6 +5,7 @@ date: "2018 M08 2"
 output:
   pdf_document: default
   html_document: default
+fontsize: 10pt
 ---
 
 ```{r setup, include=FALSE}
@@ -204,7 +205,7 @@ Er een significant verschil is tussen het Counting proces enerzijds, en de proce
 In het algemeen is er ook een significante invloed van de leeftijd : jongeren onthouden meer woorden dan ouderen.
 
 ```{r fig.height=2}
-par(mfrow=c(1,4))
+par(mfrow=c(1,4), mar=c(1,1,1,1))
 plot(mem.lm.int)
 ``` 
 
@@ -234,7 +235,7 @@ Uitgevoerd voor alle subsets per Process en Age, kunnen we hieruit de Hodges-Leh
 Volgende table bevat de resultaten, samen met deze van het lineair model met interactie.
 
 ```{r echo=FALSE}
-comp.df.age.process
+kable(comp.df.age.process, caption="Samenvattende tabel Lineair model + Wilcoxon test")
 ```
 
 Deze tabel geeft weer voor welke subsets een significant verschil kan worden aangeduid (in dit geval op basis van de bonferroni-aangepaste p-waarde).  
@@ -321,12 +322,45 @@ an.ue <- anova(ue.mod)$s.table
 an.ue.year <- anova(ue.mod.year)$s.table
 an.ue.year.lin <- anova(ue.mod.year.lin)$pTerms.table
 an.ue.datenr <- anova(ue.mod.datenr)$s.table
+
+models <- list(
+  list(
+    name = "Year, Monthly",
+    model = ue.mod
+  ),
+  list(
+    name = "Year",
+    model = ue.mod.year
+  ),
+  list(
+    name = "Year + Monthly/12",
+    model = ue.mod.datenr
+  ),
+  list(
+    name = "Year (linear)",
+    model = ue.mod.year.lin
+  )
+)
+an.result <- do.call("bind_rows",
+                     lapply(models, function(m) {
+  anova.table <- as.data.frame(anova(m$model)$s.table)
+  if (nrow(anova.table) == 0) {
+    anova.table <- as.data.frame(anova(m$model)$pTerms.table)
+  }
+  anova.table %>%
+    mutate(model.name = m$name,
+           coefficient = rownames(anova.table)) %>%
+    select(model.name, coefficient, `p-value`)
+})
+)
+
+aic.ue <- AIC(ue.mod, ue.mod.datenr, ue.mod.year, ue.mod.year.lin)
 ```
 
 De functie anova geeft voor elk model aan of de coëfficienten significant zijn.
 
 ```{r echo=FALSE}
-
+an.result
 ```
 
 Er is een significant niet-lineair verband met Year, maar niet met Monthly. 
@@ -336,11 +370,12 @@ Het model op basis van tijd (Year + Monthly / 12) toont eveneens een significant
 
 ## Vergelijking
 
-```{r}
-AIC(ue.mod, ue.mod.datenr, ue.mod.year, ue.mod.year.lin)
+```{r echo=FALSE}
+aic.ue
 ```
 
-Op basis van de AIC, is het niet-lineair model mbt. Year + Monthly /12 de beste keuze.
+Op basis van de AIC, is het niet-lineair model op basis van Year + Monthly /12 de beste keuze.
+Alle resultaten in één grafiek.
 
 ```{r echo=FALSE, fig.height=2}
 ggplot(unemploymentUS, aes(date.number, Rate)) +
@@ -380,6 +415,6 @@ ggplot(unemploymentUS, aes(date.number, Rate)) +
 ## Conclusie
 
 * Er is een significant niet-lineair verband tussen werkloosheidgraad en de tijd
-* De periode van de fluctuaties is groter dan 1 jaar, dus de invloed van het jaar is significant groter dan deze van de maand 
+* De periode van de fluctuaties is groter dan 1 jaar. Er is geen seizoensinvloed.
 
 

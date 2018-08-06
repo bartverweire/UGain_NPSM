@@ -5,4 +5,6 @@
 examen*.html
 examen*.tex
 examen*.pdf
+*.log
+*.bak
 .Rproj.user
