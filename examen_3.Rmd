@@ -3,16 +3,25 @@ title: "Niet-parametrische Statistische Methoden - Examen"
 author: "Bart Verweire"
 date: "2018 M07 27"
 output:
-  pdf_document: default
-  html_document: default
+  pdf_document: 
+    toc: true
+    toc_depth: 2
+  html_document: 
+    toc: true
+    toc_depth: 2
+fontsize: 10pt
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(width = 240)
 ```
 
 ```{r libraries, include=FALSE}
 library(tidyverse)
+library(lubridate)
+library(scales)
+library(mgcv)
 library(knitr)
 ```
 
@@ -40,12 +49,16 @@ $$Y = e^X \sim LogN(\mu, \sigma ^2)$$
 
 Hierbij zijn $\mu$ en $\sigma$ de parameters van de geassocieerde normale verdeling. 
 
-Het zou natuurlijk interessanter zijn om deze gemiddelden uit te drukken in functie van gemiddelde en standaardafwijking van de log-normale verdeling zelf.
+Het zou natuurlijk interessanter zijn om een functie te hebben met als parameters het gemiddelde en de standaardafwijking van de log-normale verdeling zelf. Daartoe moeten de parameters van de normale verdeling uitgedrukt worden in functie van deze van de lognormale. 
 
 Als we het gemiddelde en de standaardafwijking van de normale verdeling aanduiden als $\mu_{N}$ en $\sigma_{N}$, dan zijn gemiddelde en standaardafwijking van de lognormale verdeling gegeven door
 
-$$\mu_{L} = e^{\mu_{N} + \frac{\sigma_{N}}{2}}$$
-$$\sigma_{L}^2 = \left( e^{\sigma_{N}^2} - 1 \right)e^{2\mu_{N} + \sigma_{N}^2}$$
+$$
+\begin{aligned} \\
+\mu_{L} &= e^{\mu_{N} + \frac{\sigma_{N}^2}{2}} \\
+\sigma_{L}^2 &= \left( e^{\sigma_{N}^2} - 1 \right)e^{2\mu_{N} + \sigma_{N}^2} \\
+\end{aligned}
+$$
 
 Beide formules kunnen herwerkt worden tot
 
@@ -65,8 +78,15 @@ Dit laat toe om de parameters van de normale distributie te schrijven in functie
 $$
 \begin{aligned}
 e^{\sigma_{N}^2} &= 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \\
-\sigma_{N} &= \sqrt{ln\left( 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \right)} \\
 e^{\mu_{N}} &= \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \\
+\end{aligned}
+$$
+
+en finaal 
+
+$$
+\begin{aligned}
+\sigma_{N} &= \sqrt{ln\left( 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \right)} \\
 \mu_{N} &= ln\left( \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \right) \\
 \end{aligned}
 $$
@@ -97,7 +117,7 @@ We kunnen dit testen op een aantal verschillende combinaties voor de parameters 
 Eerst maken we een data frame met verschillende combinaties voor $\mu_{L}$ en $\sigma_{L}$. Dan gebruiken we de functie sapply om de gemiddelde waarden te berekenen voor een sample.
 Als de functie goed gedefinieerd is, moeten de gemeten gemiddelde waarde en standaardafwijking overeenkomen met de waarden van de parameters.
 
-De functie sapply resulteert in een matrix, waarbij de eerste 2 rijen de parameters weergeven, en de laatste 2 rijen de (afgeronde) gemeten waarden.
+Het resultaat van deze berekening is een matrix, waarbij de eerste 2 rijen de parameters weergeven, en de laatste 2 rijen de (afgeronde) gemeten waarden.
 
 ```{r}
 test.params <- expand.grid(c(1,2,3),c(0.5,1,2))
@@ -113,7 +133,7 @@ sapply(1:nrow(test.params), function(i) {
 
 De gemeten waarde komt inderdaad overeen met de waarden van de parameters, dus de functie werkt zoals het hoort.
 
-### Monte-Carlo simulatie functie
+## Monte-Carlo simulatie functie
 
 Er wordt gevraagd om Monte-Carlo simulaties uit te voeren in een aantal verschillende situaties. Hiervoor definiëren we een functie, met volgende parameters (algemener dan in de vraagstelling)
 
@@ -203,7 +223,7 @@ sim.mctest <- function(dist = c("norm", "lnorm"),
 ```
 
 
-### Test functie
+## Test functie
 Om deze functie te testen definiëren we volgende functie.
 Deze functie resulteert in een ggplot object met daarin de (density) histogrammen van de laatste steekproeven, de theoretische density functie, en de berekende p-value.
 
@@ -240,7 +260,7 @@ eval.mctest <- function(test) {
 }
 ```
 
-### Tests
+## Tests
 
 We voeren een aantal tests uit, met grote getallen, omdat in dit geval de berekende p-waarde de verwachte p-waarde van 0.05 goed moet benaderen.
 
@@ -254,7 +274,7 @@ test1 <- sim.mctest(n.total = 20000,
                     sd = 1, 
                     sd.ratio = 1,
                     test.type = "Welch",
-                    R = 1000,
+                    R = 10000,
                     alpha = 0.05)
 eval.mctest(test1)
 
@@ -270,7 +290,7 @@ test2 <- sim.mctest(n.total = 20000,
                     sd = 1, 
                     sd.ratio = 1,
                     test.type = "Welch",
-                    R = 1000,
+                    R = 10000,
                     alpha = 0.05)
 eval.mctest(test2)
 
@@ -287,7 +307,7 @@ test3 <- sim.mctest(n.total = 20000,
                     sd = 1, 
                     sd.ratio = 1,
                     test.type = "pooled",
-                    R = 1000,
+                    R = 10000,
                     alpha = 0.05)
 eval.mctest(test3)
 
@@ -303,13 +323,13 @@ test4 <- sim.mctest(n.total = 20000,
                     sd = 1, 
                     sd.ratio = 1,
                     test.type = "pooled",
-                    R = 1000,
+                    R = 10000,
                     alpha = 0.05)
 eval.mctest(test4)
 
 ```
 
-### Scenario's
+## Scenario's
 
 Om alle scenario's uit te voeren, bouwen we eerst een data frame op met alle combinaties van voorwaarden : 
 
@@ -346,7 +366,7 @@ result <- params %>%
 
 ```
 
-```{r, echo=FALSE}
+```{r}
 result %>% 
   arrange(sd.ratio, sample.ratio, test.type, dist, n.total) %>% 
   kable(caption = "Monte-Carlo simulatie voor 32 Scenario's")
@@ -378,19 +398,19 @@ success.rate <- function(p.val.threshold) {
 
 Voor een "aanvaardbare" p-waarde van 0.05 : 
 
-```{r echo=FALSE}
+```{r}
 success.rate(0.05) 
 ```
 
 Voor een "aanvaardbare" p-waarde van 0.055 : 
 
-```{r echo=FALSE}
+```{r}
 success.rate(0.055)
 ```
 
 Voor een "aanvaardbare" p-waarde van 0.06 : 
 
-```{r echo=FALSE}
+```{r}
 
 success.rate(0.06)
 ```
@@ -401,7 +421,8 @@ De invloed van het type test, voor de verschillende combinaties van de andere pa
 result %>% 
   spread(test.type, p.val) %>% 
   mutate(winner = if_else(pooled < Welch, "pooled","Welch"),
-         diff = round(100 * (Welch - pooled) / if_else(pooled < Welch, Welch, pooled),1))
+         diff = round(100 * (Welch - pooled) / if_else(pooled < Welch, Welch, pooled),1)) %>% 
+  kable(caption = "Vergelijking pooled-variance en Welch voor verschillende combinaties")
 ```
 
 ## Conclusie
@@ -413,3 +434,4 @@ De Monte-Carlo simulatie is efficiënter
 * wanneer de samples even groot zijn, en voldoende groot
 * voor gelijke standaardafwijkingen tov. verschillende standaardafwijkingen
 * een Welch t-test geeft betere resultaten dan een pooled, zeker wanneer de standaardafwijkingen verschillend zijn
+

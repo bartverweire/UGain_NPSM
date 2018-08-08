@@ -187,7 +187,7 @@ ggplot(memory, aes(interaction(Age, Process), Words)) +
   geom_boxplot()
 ```
 
-Uit de boxplots van het aantal woorden voor de verschillende combinaties van Age en Process, kan afgeleid worden dat er een verschil is in het aantal gereproduceerde woorden tussen het Counting proces en de andere processen (Imagery en Intentional). Voor de processen Imagery en Intentional lijkt er ook een verschil te zijn tussen jongeren en ouderen. We bekijken dit probleem via Regressie, en via rang-gebaseerde methodes.
+Uit de boxplots van het aantal gereproduceerde woorden voor de verschillende combinaties van Age en Process, kan afgeleid worden dat er een verschil is tussen het Counting proces en de processen Imagery en Intentional. Voor de processen Imagery en Intentional lijkt er ook een verschil te zijn tussen jongeren en ouderen. We bekijken dit probleem via Regressie, en via rang-gebaseerde methodes.
 
 ## Regressie
 
@@ -208,7 +208,7 @@ De modellen kunnen vergeleken worden via de functie AIC (An Information Criterio
 aic_lm
 ```
 
-De functie anova geeft in alle gevallen aan dat de regressie parameters significant zijn. Voor het model met interactie :
+De functie anova geeft in alle gevallen aan dat de regressie parameters significant zijn. Bv. voor het model met interactie :
 
 ```{r echo=FALSE}
 as.data.frame(an.lm.int)
@@ -217,26 +217,28 @@ as.data.frame(an.lm.int)
 Er een significant verschil is tussen het Counting proces enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via deze modellen niet spreken).
 In het algemeen is er ook een significante invloed van de leeftijd : jongeren onthouden meer woorden dan ouderen.
 
+In de plot van het model (bv. voor het model met interactie) zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie niet perfect, maar toch redelijk goed voldaan zijn. 
+
 ```{r echo=FALSE,fig.height=2}
 par(mfrow=c(1,4), mar=c(1,1,1,1))
 plot(mem.lm.int)
 ``` 
 
-In de plot van het model (bv. voor het model met interactie) zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie niet perfect, maar toch redelijk goed voldaan zijn. 
 
 
 ## Rang-gebaseerde methodes
 
 We gebruiken : 
 
-* de Kruskal-Wallis test, op verschillende subsets (per Process, eventueel beperkt tot een specifieke leeftijdscategorie, of per Process en Age), om uit te maken of er al dan niet een subset met afwijkende distributie.
-* De Wilcoxon-Mann-Whitney two-sample test voor elke combinatie van 2 subsets. In de veronderstelling van locatie-shift gebruiken we de Hodges-Lehman schatter om het verschil in gemiddelde van de subsets te bepalen.
+* de Kruskal-Wallis test, op verschillende subsets (per Process, per Process beperkt tot een specifieke leeftijdscategorie, en per combinatie van Process en Age), om uit te maken of er al dan niet een subset met afwijkende distributie.
+* De Wilcoxon-Mann-Whitney two-sample test voor elke combinatie van 2 subsets volgens de hierboven vermelde verdeling. 
+* In de veronderstelling van locatie-shift gebruiken we de Hodges-Lehman schatter om het verschil in gemiddelde van de subsets te bepalen.
 
-De rank-gebaseerde methodes veronderstellen geen normaliteit of gelijke distributies, maar als we de Hodges-Lehman schatter gebruiken, dan is er uiteraard wel een veronderstelling van locatie-shift, dus in dit geval wordt wel verondersteld dat de varianties van de verschillende subsets gelijk zijn.
+De rang-gebaseerde methodes veronderstellen geen normaliteit of gelijke distributies, maar als we de Hodges-Lehman schatter gebruiken om de  locatie-shift te berekenen, dan wordt natuurlijk wel verondersteld dat de distributies gelijkvormig zijn, en dus dat varianties van de verschillende distributies gelijk zijn.
 
 ### Kruskal-Wallis testen
 
-De p-waarde van de kruskal Wallis tests, uitgevoerd tov. de verschillend subsets, toont telkens aan dat er minstens 1 subset is met afwijkende distributie. De p-waarde is het laagst voor de combinaties (Process, Age).
+De p-waarde van de kruskal Wallis tests, uitgevoerd tov. de verschillend subsets, toont telkens aan dat er minstens 1 subset is met afwijkende distributie. De p-waarde is het laagst voor de test op alle combinaties van Process en Age.
 
 ```{r echo=FALSE}
 kw.result
@@ -251,14 +253,14 @@ Onderstaande tabel bevat de resultaten, samen met deze van het lineair model met
 kable(comp.df.age.process, caption="Samenvattende tabel Lineair model + Wilcoxon test")
 ```
 
-Deze kolom **significant** geeft weer voor welke subsets een significant verschil kan worden aangeduid (in dit geval op basis van de bonferroni-aangepaste p-waarde). 
-Het via de lineaire regressie bepaalde verschil valt steeds binnen het betrouwbaarheidsinterval.
+De kolom **p.value.adj** is de bonferroni-aangepaste p-waarde, en de kolom **significant** geeft aan of deze aangepaste p-waarde < 0.05. 
+We zien dat het via de lineaire regressie bepaalde verschil steeds binnen het betrouwbaarheidsinterval van de Wilcoxon test valt.
 
 ## Conclusie
 
 Beide methodes geven aan dat er een significant effect is van het proces, en van de leeftijd.  
 Het Counting proces is significant verschillend van de Imagery en Intentional processen, voor elke leeftijdscategorie.  
-Het Intentional proces voor ouderen is significant minder efficiënt dan wat de jongeren presteren in voor het Imagery en Intentional proces.
+Het Intentional proces voor ouderen is significant minder efficiënt dan wat de jongeren presteren in zowel het Imagery en Intentional proces.
 De methode via lineaire regressie laat enkel toe om na te gaan of er een significant effect is tov. een referentietoestand. De Wilcoxon-Mann-Whitney tests daarentegen laten toe om alle subsets met elkaar te vergelijken.
 
 # Vraag 2 - Werkloosheidsgraad
@@ -357,23 +359,22 @@ ggplot(unemploymentUS, aes(date, Rate)) +
   ggtitle("Unemployment Rate in US")
 ```
 
-We zien een duidelijk niet-lineair verloop. Er lijkt een periodieke component te zijn, maar de periode is groter dan 1 jaar.
+We zien in bovenstaande figuur een duidelijk niet-lineair verloop. Er lijkt een periodieke component te zijn, maar de periode is groter dan 1 jaar.
 
 ## Uitwerking
 
 Gezien de niet-lineariteit is een gam-model aangewezen.
-Er zijn 2 onafhankelijke variabelen, namelijk Year en Monthly, maar we kunnen dit combineren in 1 tijdsvariabele. We kunnen dus een aantal verschillende modellen opstellen
+Er zijn 2 onafhankelijke variabelen, namelijk Year en Monthly, maar we kunnen die combineren in 1 tijdsvariabele. We kunnen dus een aantal mogelijke modellen opstellen
 
-* Year als onafhankelijke variabele
-* Year en Monthly als onafhankelijke variabelen
-* Tijd (of numeriek : Year + Monthly/12) als onafhankelijke variabele
-
-De modellen kunnen vergeleken worden via AIC.
+* met Year als onafhankelijke variabele
+* met Year en Monthly als onafhankelijke variabelen
+* met Tijd (of numeriek : Year + Monthly/12) als onafhankelijke variabele
 
 De functie anova geeft voor elk model aan of de coëfficienten significant zijn.
 
 ```{r echo=FALSE}
-an.result
+an.result %>% 
+  kable(caption = "Anova output voor de verschillende gam modellen en de verschillende termen")
 ```
 
 Er is een significant niet-lineair verband met Year, maar niet met Monthly (p-value = 0.29). 
@@ -382,6 +383,8 @@ In het zuiver lineaire model zijn de coëfficiënten zwak significant. Maar, zoa
 Het model op basis van tijd (Year + Monthly / 12) toont eveneens een significant niet-lineair verband.
 
 ## Vergelijking
+
+De modellen kunnen vergeleken worden via AIC.
 
 ```{r echo=FALSE}
 aic.ue
@@ -576,11 +579,11 @@ result <- params %>%
   mutate(p.val = sims)
 ```
 
-Onderstaande tabel geeft het resultaat weer, gesorteerd volgens de berekende p-waarde : 
+Onderstaande tabel geeft het resultaat weer : 
 
 ```{r, echo=FALSE}
 result %>% 
-  arrange(p.val) %>%
+  arrange(dist, sd.ratio, n.total, sample.ratio, test.type) %>%
   kable(caption = "Monte-Carlo simulatie voor 32 Scenario's")
 ```
 
@@ -614,6 +617,15 @@ Voor een "aanvaardbare" p-waarde van 0.055 :
 success.rate(0.055)
 ```
 
+Of we kunnen de invloed bekijken van het type test, voor de verschillende combinaties van de andere parameters. 
+
+```{r echo=FALSE}
+result %>% 
+  spread(test.type, p.val) %>% 
+  mutate(winner = if_else(pooled < Welch, "pooled","Welch"),
+         diff = round(100 * (Welch - pooled) / if_else(pooled < Welch, Welch, pooled),1)) %>% 
+  kable(caption="Invloed van test type onder verschillende scenario's")
+```
 ## Conclusie
 
 De Monte-Carlo simulatie is efficiënter 
@@ -630,6 +642,8 @@ De Monte-Carlo simulatie is efficiënter
 
 ## Data Visualisatie
 
+Opladen data
+
 ```{r}
 load(file = "memory.rda")
 memory.younger <- memory %>% 
@@ -638,7 +652,9 @@ memory.older <- memory %>%
   filter(Age == "Older")
 ```
 
-```{r, echo=FALSE,message=FALSE,warning=FALSE, fig.width = 8, fig.height = 2}
+Visualisatie
+
+```{r, message=FALSE,warning=FALSE, fig.width = 8, fig.height = 2}
 # Visualiseer data
 ggplot(memory, aes(Words, fill = Age)) +
   geom_histogram(position = "dodge") +
@@ -675,7 +691,7 @@ We kunnen de lineaire regressie uitvoeren op verschillende wijzen :
 
 ### Test functie
 
-Om de resultaten van het lineaire model eenvoudiger te vergelijken met de resultaten van de wilcoxon testen (zie verder), definiëren we een functie om de resultaten van de lineaire regressie in een data.frame te bewaren.
+Om de resultaten van het lineaire model eenvoudiger te vergelijken met de resultaten van de Wilcoxon testen (zie verder), definiëren we een functie om de resultaten van de lineaire regressie in een data.frame te bewaren.
 
 ```{r}
 lm.tests <- function(model, test.data) {
@@ -704,7 +720,7 @@ lm.tests <- function(model, test.data) {
 }
 ```
 
-We zullen de test functie uitvoeren op de resultaten van de predict functie, met als data een data frame met de mogelijke combinaties van Age en Process, of van Process (afhankelijk van het model).
+We zullen de test functie uitvoeren op de resultaten van de predict functie, met als nieuwe data een data frame met de mogelijke combinaties van Age en Process, of van Process (afhankelijk van het model).
 
 ```{r}
 test.data.age.process <- expand.grid(Age = c("Older","Younger"), 
@@ -737,26 +753,29 @@ anova(mem.lm.proc)
 
 Er is een significant verband tussen het aantal gereproduceerde woorden en het proces.
 
-Zowel de t-test als de F-test wijzen op een sifnificant verband is tussen het proces Counting enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via dit model niet spreken).
+Zowel de t-test als de F-test wijzen op een significant verband is tussen het proces Counting enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via dit model niet spreken).
 
 In de plot van het model zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie redelijk goed voldaan zijn.  
 De variantie niet onafhankelijk van de gefitte waarde, en de residuals zijn niet perfect normaal verdeeld, maar het verschil is aanvaardbaar.
 
-```{r echo=FALSE}
+```{r}
 par(mfrow=c(2,2))
 plot(mem.lm.proc)
 ```
-```{r echo=FALSE}
+```{r}
 mem.lm.proc.pred <- predict(mem.lm.proc, se.fit = TRUE)
 mem.lm.proc.data <- memory %>% 
   mutate(fit = mem.lm.proc.pred$fit,
          l = mem.lm.proc.pred$fit - 1.96*mem.lm.proc.pred$se.fit,
          u = mem.lm.proc.pred$fit + 1.96*mem.lm.proc.pred$se.fit)
 
-ggplot(mem.lm.proc.data, aes(Process, Words)) +
+ggplot(mem.lm.proc.data, aes(Process, Words, color = "Lin.Model", fill = "Lin.Model")) +
   geom_point() +
   geom_line(aes(x = as.numeric(Process), y = fit)) +
-  geom_ribbon(aes(as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1)
+  geom_ribbon(aes(as.numeric(Process), ymin = l, ymax = u), 
+              size = 0, linetype = 2, alpha = 0.1, color = NA) +
+  ggtitle("Plot van data en predictie via lineaire regressie op Process") +
+  guides(fill = FALSE)
 ``` 
 
 ### Effect van leeftijd, zonder interactie
@@ -772,19 +791,19 @@ summary(mem.lm)
 anova(mem.lm)
 ```
 
-Zowel de t-test als de F-test wijzen op een sifnificant verband is tussen het proces Counting enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via dit model niet spreken).
+Zowel de t-test als de F-test wijzen op een significant verband is tussen het proces Counting enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via dit model niet spreken).
 In het algemeen is er ook een significante invloed van de leeftijd : jongeren onthouden meer woorden dan ouderen.
 
 In de plot van het model zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie redelijk goed voldaan zijn. 
 
 De variantie niet onafhankelijk van de gefitte waarde, en de residuals zijn niet perfect normaal verdeeld, maar het verschil is aanvaardbaar.
 
-```{r echo=FALSE}
+```{r}
 par(mfrow=c(2,2))
 plot(mem.lm)
 ```
 
-```{r echo=FALSE}
+```{r}
 mem.lm.pred <- predict(mem.lm, se.fit = TRUE)
 mem.lm.data <- memory %>% 
   mutate(fit = mem.lm.pred$fit,
@@ -794,7 +813,9 @@ mem.lm.data <- memory %>%
 ggplot(mem.lm.data, aes(Process, Words, color = Age, fill = Age)) +
   geom_point() +
   geom_line(aes(x = as.numeric(Process), y = fit)) +
-  geom_ribbon(aes(as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1)
+  geom_ribbon(aes(as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1) +
+  ggtitle("Plot van data en predictie via lineaire regressie op Process en Age (geen interactie)") +
+  guides(fill = FALSE)
 ``` 
 
 ### Met interactie
@@ -810,15 +831,17 @@ summary(mem.lm.int)
 anova(mem.lm.int)
 ```
 
+
 Ook de interactieterm is dus significant, vooral dan in geval van het Intentional Proces. Dit gaat ten koste van de algemene leeftijdsfactor, die nu niet significant is.
 
 
-```{r echo=FALSE}
+
+```{r}
 par(mfrow=c(2,2))
 plot(mem.lm.int)
 ```
 
-```{r echo=FALSE}
+```{r}
 mem.lm.int.pred <- predict(mem.lm.int, se.fit = TRUE)
 mem.lm.int.data <- memory %>% 
   mutate(fit = mem.lm.int.pred$fit,
@@ -828,11 +851,11 @@ mem.lm.int.data <- memory %>%
 ggplot(mem.lm.int.data, aes(Process, Words, color = Age, fill = Age)) +
   geom_point() +
   geom_line(aes(as.numeric(Process), fit)) +
-  geom_ribbon(aes(x = as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1)
+  geom_ribbon(aes(x = as.numeric(Process), ymin = l, ymax = u), size = 0, linetype = 2, alpha = 0.1) +
+  ggtitle("Plot van data en predictie via lineaire regressie op Process en Age (met interactie)")
 ```
 
 Merk op dat het model met interactie er op neer komt dat voor elke combinatie (Age, Process) het gemiddelde genomen wordt.
-
 
 We gebruiken het model om het aantal woorden te voorspellen.
 
@@ -898,7 +921,7 @@ memory.by.process.older <- lapply(split(memory.older, memory.older$Process), '[[
 memory.by.process.younger <- lapply(split(memory.younger, memory.younger$Process), '[[', "Words")
 ```
 
-Om efficiënter de verschillende Wilcoxon-Mann-Whitney testen te kunnen uitvoeren, definiëren we de functie : 
+Om efficiënter de verschillende Wilcoxon-Mann-Whitney testen te kunnen uitvoeren, en de resultaten in een data.frame terug te krijgen, definiëren we de functie : 
 
 ```{r}
 wc.tests <- function(subsets, adjust.method = "bonferroni") {
@@ -974,6 +997,9 @@ wc.df.age.process%>%
   kable(caption = "Wilcoxon-Mann-Whitney tests voor combinaties (Age, Process)")
 ```
 
+Leeftijd is volgens deze test niet altijd een significante parameter.
+
+
 Voor alle Processen, gelimiteerd tot de jongeren
 
 ```{r message=FALSE,warning=FALSE}
@@ -991,6 +1017,8 @@ wc.df.process.older <- wc.tests(memory.by.process.older) %>%
 wc.df.process.older %>% 
   kable(caption = "Wilcoxon-Mann-Whitney tests voor processen, beperkt tot ouderen")
 ```
+
+Er is zowel voor jongeren als voor ouderen enkel een significant verschil tussen het Counting proces en de twee andere processen, maar niet tussen de Imagery en Intentional processen onderling.
 
 
 
@@ -1048,7 +1076,7 @@ De methode via lineaire regressie laat enkel toe om na te gaan of er een signifi
 
 ## Data Visualisatie
 
-```{r, include=FALSE}
+```{r}
 load(file = "unemploymentUS.rda")
 
 unemploymentUS <- unemploymentUS %>% 
@@ -1056,7 +1084,7 @@ unemploymentUS <- unemploymentUS %>%
          date.number = Year + Monthly / 12)
 ```
 
-```{r echo=FALSE,fig.height=2}
+```{r fig.height=3}
 ggplot(unemploymentUS, aes(date, Rate)) +
   geom_point() +
   scale_x_date(labels = date_format("%Y-%m"), date_breaks = "year") +
@@ -1085,7 +1113,7 @@ anova(ue.mod)
 
 Er is een significant verband met Year, maar niet met Monthly.
 
-```{r echo=FALSE, fig.height=2}
+```{r}
 ue.mod.pred = predict(ue.mod, se.fit = TRUE)
 ue.mod.data <- unemploymentUS %>% 
   mutate(fit = ue.mod.pred$fit,
@@ -1098,10 +1126,11 @@ ggplot(ue.mod.data, aes(Year + Monthly / 12)) +
   geom_line(aes(y = fit), color = "red") +
   geom_ribbon(aes(ymin = l, ymax = u), fill = "red", alpha = 0.1) +
   scale_x_continuous(breaks = 1970:1990) +
-  theme(axis.text.x = element_text(angle = 90))
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Data + predictie voor een gam model op basis van Year en Monthly")
 ```
 
-```{r echo=FALSE, fig.height=2}
+```{r}
 par(mfrow=c(1,2))
 plot(ue.mod, residuals = TRUE, select = 1, shade = TRUE)
 plot(ue.mod, residuals = TRUE, select = 2, shade = TRUE)
@@ -1122,7 +1151,7 @@ Het model heeft een iets lagere AIC dan het model met Year en Monthly.
 AIC(ue.mod, ue.mod.year)
 ``` 
 
-```{r echo=FALSE, fig.height=2}
+```{r}
 ue.mod.year.pred = predict(ue.mod.year, se.fit = TRUE)
 
 ue.mod.year.data <- unemploymentUS %>% 
@@ -1136,12 +1165,14 @@ ggplot(ue.mod.year.data, aes(Year + Monthly / 12)) +
   geom_line(aes(y = fit), color = "red") +
   geom_ribbon(aes(ymin = l, ymax = u), fill = "red", alpha = 0.1) +
   scale_x_continuous(breaks = 1970:1990) +
-  theme(axis.text.x = element_text(angle = 90))
-
-plot(ue.mod.year, residuals = TRUE)
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Data + predicties voor het gam model op Year")
 
 ```
 
+```{r}
+plot(ue.mod.year, residuals = TRUE)
+```
 
 ## Is het model significant niet-lineair ?
 ```{r}
@@ -1150,11 +1181,12 @@ summary(ue.mod.year.lin)
 anova(ue.mod.year.lin)
 ```
 
-In het zuiver lineaire model zijn de coëfficiënten niet significant. Zoals visueel al duidelijk was, kunnen we ervan uitgaan dat de afhankelijkheid niet-lineair is.
+In het zuiver lineaire model zijn de coëfficiënten zwak significant. 
 
-```{r echo=FALSE, fig.height=2}
+Zoals visueel al duidelijk was, kunnen we er beter van uitgaan dat de afhankelijkheid niet-lineair is.
+
+```{r}
 ue.mod.year.lin.pred = predict(ue.mod.year.lin, se.fit = TRUE)
-residuals(ue.mod.year.lin.pred)
 ue.mod.year.lin.data <- unemploymentUS %>% 
   mutate(fit = ue.mod.year.lin.pred$fit,
          l = ue.mod.year.lin.pred$fit - 1.96 * ue.mod.year.lin.pred$se.fit,
@@ -1165,7 +1197,8 @@ ggplot(ue.mod.year.lin.data, aes(Year + Monthly / 12)) +
   geom_line(aes(y = fit), color = "red") +
   geom_ribbon(aes(ymin = l, ymax = u), fill = "red", alpha = 0.1) +
   scale_x_continuous(breaks = 1970:1990) +
-  theme(axis.text.x = element_text(angle = 90))
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Data + predictie voor een lineair model")
 ```
 
 ## Gam model op tijd
@@ -1180,7 +1213,7 @@ anova(ue.mod.datenr)
 
 De coëfficiënten in dit model zijn eveneens significant
 
-```{r echo=FALSE, fig.height=2}
+```{r}
 ue.mod.datenr.pred = predict(ue.mod.datenr, se.fit = TRUE)
 
 ue.mod.datenr.data <- unemploymentUS %>% 
@@ -1193,7 +1226,8 @@ ggplot(ue.mod.datenr.data, aes(Year + Monthly / 12)) +
   geom_line(aes(y = fit), color = "red") +
   geom_ribbon(aes(ymin = l, ymax = u), fill = "red", alpha = 0.1) +
   scale_x_continuous(breaks = 1970:1990) +
-  theme(axis.text.x = element_text(angle = 90))
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Data + predictie voor gam model op Year + Monthly / 12")
 
 # plot(ue.mod.datenr.pred)
 ```
@@ -1204,7 +1238,7 @@ ggplot(ue.mod.datenr.data, aes(Year + Monthly / 12)) +
 AIC(ue.mod, ue.mod.datenr, ue.mod.year)
 ```
 
-Het model op basis van Year + Monthly /12 is het beste
+Het model op basis van Year + Monthly /12 is het beste.
 
 ## Conclusie
 
@@ -1217,7 +1251,7 @@ Het model op basis van Year + Monthly /12 is het beste
 
 ## Voorbereiding: Lognormale verdeling
 
-Voor de lognormale verdeling zullen we een functie definiëren die gebruik maakt van de functie rlnorm. We hadden ook de voorgestelde functie kunnen gebruiken, maar om beter het verband tussen normale en lognormale te begrijpen hebben we ervoor gekozen om de functie rlnorm wat dieper te onderzoeken.
+Voor de lognormale verdeling zullen we een functie definiëren die gebruik maakt van de functie rlnorm. Ik had ook de in de opgave voorgestelde functie kunnen gebruiken, maar om beter het verband tussen normale en lognormale te begrijpen ik ervoor gekozen om de functie rlnorm wat dieper te onderzoeken.
 
 
 ```{r, eval=FALSE}
@@ -1236,12 +1270,16 @@ $$Y = e^X \sim LogN(\mu, \sigma ^2)$$
 
 Hierbij zijn $\mu$ en $\sigma$ de parameters van de geassocieerde normale verdeling. 
 
-Het zou natuurlijk interessanter zijn om deze gemiddelden uit te drukken in functie van gemiddelde en standaardafwijking van de log-normale verdeling zelf.
+Het zou natuurlijk interessanter zijn om een functie te hebben met als parameters het gemiddelde en de standaardafwijking van de log-normale verdeling zelf. Daartoe moeten de parameters van de normale verdeling uitgedrukt worden in functie van deze van de lognormale. 
 
 Als we het gemiddelde en de standaardafwijking van de normale verdeling aanduiden als $\mu_{N}$ en $\sigma_{N}$, dan zijn gemiddelde en standaardafwijking van de lognormale verdeling gegeven door
 
-$$\mu_{L} = e^{\mu_{N} + \frac{\sigma_{N}}{2}}$$
-$$\sigma_{L}^2 = \left( e^{\sigma_{N}^2} - 1 \right)e^{2\mu_{N} + \sigma_{N}^2}$$
+$$
+\begin{aligned} \\
+\mu_{L} &= e^{\mu_{N} + \frac{\sigma_{N}^2}{2}} \\
+\sigma_{L}^2 &= \left( e^{\sigma_{N}^2} - 1 \right)e^{2\mu_{N} + \sigma_{N}^2} \\
+\end{aligned}
+$$
 
 Beide formules kunnen herwerkt worden tot
 
@@ -1261,8 +1299,15 @@ Dit laat toe om de parameters van de normale distributie te schrijven in functie
 $$
 \begin{aligned}
 e^{\sigma_{N}^2} &= 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \\
-\sigma_{N} &= \sqrt{ln\left( 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \right)} \\
 e^{\mu_{N}} &= \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \\
+\end{aligned}
+$$
+
+en finaal 
+
+$$
+\begin{aligned}
+\sigma_{N} &= \sqrt{ln\left( 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \right)} \\
 \mu_{N} &= ln\left( \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \right) \\
 \end{aligned}
 $$
@@ -1293,7 +1338,7 @@ We kunnen dit testen op een aantal verschillende combinaties voor de parameters 
 Eerst maken we een data frame met verschillende combinaties voor $\mu_{L}$ en $\sigma_{L}$. Dan gebruiken we de functie sapply om de gemiddelde waarden te berekenen voor een sample.
 Als de functie goed gedefinieerd is, moeten de gemeten gemiddelde waarde en standaardafwijking overeenkomen met de waarden van de parameters.
 
-De functie sapply resulteert in een matrix, waarbij de eerste 2 rijen de parameters weergeven, en de laatste 2 rijen de (afgeronde) gemeten waarden.
+Het resultaat van deze berekening is een matrix, waarbij de eerste 2 rijen de parameters weergeven, en de laatste 2 rijen de (afgeronde) gemeten waarden.
 
 ```{r}
 test.params <- expand.grid(c(1,2,3),c(0.5,1,2))
@@ -1450,7 +1495,7 @@ test1 <- sim.mctest(n.total = 20000,
                     sd = 1, 
                     sd.ratio = 1,
                     test.type = "Welch",
-                    R = 1000,
+                    R = 10000,
                     alpha = 0.05)
 eval.mctest(test1)
 
@@ -1466,7 +1511,7 @@ test2 <- sim.mctest(n.total = 20000,
                     sd = 1, 
                     sd.ratio = 1,
                     test.type = "Welch",
-                    R = 1000,
+                    R = 10000,
                     alpha = 0.05)
 eval.mctest(test2)
 
@@ -1483,7 +1528,7 @@ test3 <- sim.mctest(n.total = 20000,
                     sd = 1, 
                     sd.ratio = 1,
                     test.type = "pooled",
-                    R = 1000,
+                    R = 10000,
                     alpha = 0.05)
 eval.mctest(test3)
 
@@ -1499,7 +1544,7 @@ test4 <- sim.mctest(n.total = 20000,
                     sd = 1, 
                     sd.ratio = 1,
                     test.type = "pooled",
-                    R = 1000,
+                    R = 10000,
                     alpha = 0.05)
 eval.mctest(test4)
 
@@ -1542,7 +1587,7 @@ result <- params %>%
 
 ```
 
-```{r, echo=FALSE}
+```{r}
 result %>% 
   arrange(sd.ratio, sample.ratio, test.type, dist, n.total) %>% 
   kable(caption = "Monte-Carlo simulatie voor 32 Scenario's")
@@ -1574,19 +1619,19 @@ success.rate <- function(p.val.threshold) {
 
 Voor een "aanvaardbare" p-waarde van 0.05 : 
 
-```{r echo=FALSE}
+```{r}
 success.rate(0.05) 
 ```
 
 Voor een "aanvaardbare" p-waarde van 0.055 : 
 
-```{r echo=FALSE}
+```{r}
 success.rate(0.055)
 ```
 
 Voor een "aanvaardbare" p-waarde van 0.06 : 
 
-```{r echo=FALSE}
+```{r}
 
 success.rate(0.06)
 ```
@@ -1597,7 +1642,8 @@ De invloed van het type test, voor de verschillende combinaties van de andere pa
 result %>% 
   spread(test.type, p.val) %>% 
   mutate(winner = if_else(pooled < Welch, "pooled","Welch"),
-         diff = round(100 * (Welch - pooled) / if_else(pooled < Welch, Welch, pooled),1))
+         diff = round(100 * (Welch - pooled) / if_else(pooled < Welch, Welch, pooled),1)) %>% 
+  kable(caption = "Vergelijking pooled-variance en Welch voor verschillende combinaties")
 ```
 
 ## Conclusie
