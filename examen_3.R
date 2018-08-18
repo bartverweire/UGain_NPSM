@@ -257,6 +257,19 @@ test4 <- sim.mctest(
 )
 eval.mctest(test4)
 
+test5 <- sim.mctest(
+  n.total = 20000,
+  sample.ratio = 1/3,
+  dist = "lnorm",
+  mu = 1,
+  sd = 1,
+  sd.ratio = 5,
+  test.type = "pooled",
+  R = 10000,
+  alpha = 0.05
+)
+eval.mctest(test5)
+
 ## Scenario's
 # Om alle scenario's uit te voeren, bouwen we eerst een data frame op met alle combinaties van voorwaarden :
 

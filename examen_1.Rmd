@@ -23,6 +23,8 @@ library(lubridate)
 library(scales)
 library(mgcv)
 library(knitr)
+
+theme_set(theme_bw())
 ```
 
 # Vraag 1 - Geheugentest

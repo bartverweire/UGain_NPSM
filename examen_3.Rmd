@@ -1,5 +1,5 @@
 ---
-title: "Niet-parametrische Statistische Methoden - Examen"
+title: "Examen Niet-parametrische Statistische Methoden"
 author: "Bart Verweire"
 date: "2018 M07 27"
 output:
@@ -23,6 +23,8 @@ library(lubridate)
 library(scales)
 library(mgcv)
 library(knitr)
+
+theme_set(theme_bw())
 ```
 
 
@@ -60,14 +62,9 @@ $$
 \end{aligned}
 $$
 
-Beide formules kunnen herwerkt worden tot
+De laatste formule kan herwerkt worden tot
 
-$$
-\begin{aligned}
-e^{\mu_{N}} &= \mu_{L}e^{-{\frac{\sigma_{N}^2}{2}}} \\
-\mu_{N} &= ln(\mu_{L})-{\frac{\sigma_{N}^2}{2}} \\
-\end{aligned}
-$$
+$$ e^{\mu_{N}} &= \mu_{L}e^{-{\frac{\sigma_{N}^2}{2}}}  $$
 
 en
 
@@ -78,7 +75,7 @@ Dit laat toe om de parameters van de normale distributie te schrijven in functie
 $$
 \begin{aligned}
 e^{\sigma_{N}^2} &= 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \\
-e^{\mu_{N}} &= \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \\
+e^{\mu_{N}} &= \frac{\mu_{L}}{\sqrt{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}}} \\
 \end{aligned}
 $$
 
@@ -87,7 +84,7 @@ en finaal
 $$
 \begin{aligned}
 \sigma_{N} &= \sqrt{ln\left( 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \right)} \\
-\mu_{N} &= ln\left( \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \right) \\
+\mu_{N} &= ln\left( \frac{\mu_{L}}{\sqrt{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}}} \right) \\
 \end{aligned}
 $$
 
@@ -140,12 +137,12 @@ Er wordt gevraagd om Monte-Carlo simulaties uit te voeren in een aantal verschil
 * dist (waarden **norm** of **lnorm**) : Data uit een normale/lognormale verdeling 
 * n.total : totaal aantal samples voor steekproef 1 en steekproef 2 samen
 * sample.ratio (default 1) : verhouding van het aantal samples in steekproef 1 tov. steekproef 2, bv.
-  + n.total = 200, sample.ratio = 3 leidt tot 150 samples in steekproef 1 en 50 in steekproef 2
-  + de default waarde leidt tot een gelijk aantal samples
+    + n.total = 200, sample.ratio = 3 leidt tot 150 samples in steekproef 1 en 50 in steekproef 2
+    + de default waarde leidt tot een gelijk aantal samples
 * mu : gemiddelde waarde voor beide steekproeven
 * sd : standaardafwijking voor steekproef 1
 * sd.ratio : verhouding van standaardafwijking voor steekproef 1 tov. die van steekproef 2
-  + sd.ratio = 5 betekent $\sigma_{1} = 1$ en $\sigma_{2} = 1/5$
+    + sd.ratio = 5 betekent $\sigma_{1} = 1$ en $\sigma_{2} = 1/5$
 * test.type (waarden **pooled** of **Welch**) : geeft aan of de t-test gebruik maakt van de "pooled" variantie, of van de Welch benadering voor het aantal vrijheidsgraden.
 * R (default 10000) : aantal Monte-Carlo simulaties in elk scenario
 * alpha (default 0.05) : p-value drempelwaarde

@@ -23,6 +23,8 @@ library(lubridate)
 library(scales)
 library(mgcv)
 library(knitr)
+
+theme_set(theme_bw())
 ```
 
 # Vraag 2 - Werkloosheidsgraad
@@ -37,7 +39,7 @@ unemploymentUS <- unemploymentUS %>%
          date.number = Year + Monthly / 12)
 ```
 
-```{r echo=FALSE,fig.height=2}
+```{r fig.height=3}
 ggplot(unemploymentUS, aes(date, Rate)) +
   geom_point() +
   scale_x_date(labels = date_format("%Y-%m"), date_breaks = "year") +

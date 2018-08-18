@@ -23,6 +23,8 @@ library(lubridate)
 library(scales)
 library(mgcv)
 library(knitr)
+
+theme_set(theme_bw())
 ```
 
 # Vraag 1 - Geheugentest
@@ -199,8 +201,8 @@ Bij een lineaire regressie zijn de veronderstellingen :
 
 De lineaire regressie is uitgevoerd op verschillende wijzen :   
 
-* onafhankelijk van de leeftijd
-* afhankelijk van proces en leeftijd, met en zonder interactie
+* onafhankelijk van de leeftijd (mem.lm.proc)
+* afhankelijk van proces en leeftijd, met (mem.lm.int) en zonder interactie (mem.lm)
 
 De modellen kunnen vergeleken worden via de functie AIC (An Information Criterion). Het model met de interactie term levert de laagste AIC, en is dus te verkiezen.
 
@@ -214,8 +216,8 @@ De functie anova geeft in alle gevallen aan dat de regressie parameters signific
 as.data.frame(an.lm.int)
 ```
 
-Er een significant verschil is tussen het Counting proces enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via deze modellen niet spreken).
-In het algemeen is er ook een significante invloed van de leeftijd : jongeren onthouden meer woorden dan ouderen.
+Er is een significant verschil tussen het Counting proces enerzijds, en de processen Imagery en Intentional anderzijds (van een significant verschil tussen Imagery en Intentional kunnen we via deze modellen niet spreken).
+In het algemeen is er ook een significante invloed van de leeftijd : jongeren onthouden meer woorden dan ouderen (maar niet voor het Counting proces).
 
 In de plot van het model (bv. voor het model met interactie) zien we dat de voorwaarden rond normaliteit en gelijkheid van de variantie niet perfect, maar toch redelijk goed voldaan zijn. 
 
@@ -373,8 +375,7 @@ Er zijn 2 onafhankelijke variabelen, namelijk Year en Monthly, maar we kunnen di
 De functie anova geeft voor elk model aan of de coëfficienten significant zijn.
 
 ```{r echo=FALSE}
-an.result %>% 
-  kable(caption = "Anova output voor de verschillende gam modellen en de verschillende termen")
+an.result
 ```
 
 Er is een significant niet-lineair verband met Year, maar niet met Monthly (p-value = 0.29). 
@@ -440,7 +441,7 @@ ggplot(unemploymentUS, aes(date.number, Rate)) +
 
 ## Vraagstelling
 
-Opzetten van een Monte-Carlo simulatie voor een two-sample t-test evalueert onder de nulhypothese $H_{0} : \mu_{1} = \mu_{2}$/
+Opzetten van een Monte-Carlo simulatie voor een two-sample t-test evalueert onder de nulhypothese $H_{0} : \mu_{1} = \mu_{2}$
 
 ```{r lognorm, include=FALSE}
 # Random generator voor de Log-normale distributie
@@ -538,17 +539,17 @@ Er wordt gevraagd om Monte-Carlo simulaties uit te voeren in een aantal verschil
 * dist (waarden **norm** of **lnorm**) : Data uit een normale/lognormale verdeling 
 * n.total : totaal aantal samples voor steekproef 1 en steekproef 2 samen
 * sample.ratio (default 1) : verhouding van het aantal samples in steekproef 1 tov. steekproef 2, bv.
-  + n.total = 200, sample.ratio = 3 leidt tot 150 samples in steekproef 1 en 50 in steekproef 2
-  + de default waarde leidt tot een gelijk aantal samples
+    + n.total = 200, sample.ratio = 3 leidt tot 150 samples in steekproef 1 en 50 in steekproef 2
+    + de default waarde leidt tot een gelijk aantal samples
 * mu : gemiddelde waarde voor beide steekproeven
 * sd : standaardafwijking voor steekproef 1
 * sd.ratio : verhouding van standaardafwijking voor steekproef 1 tov. die van steekproef 2
-  + sd.ratio = 5 betekent $\sigma_{1} = 1$ en $\sigma_{2} = 1/5$
+    + sd.ratio = 5 betekent $\sigma_{1} = 1$ en $\sigma_{2} = 1/5$
 * test.type (waarden **pooled** of **Welch**) : geeft aan of de t-test gebruik maakt van de "pooled" variantie, of van de Welch benadering voor het aantal vrijheidsgraden.
 * R (default 10000) : aantal Monte-Carlo simulaties in elk scenario
 * alpha (default 0.05) : p-value drempelwaarde
 
-Om alle scenario's uit te voeren, bouwen we eerst een data frame op met alle combinaties van voorwaarden, en via lapply kunnen we de Monte-Carlo simulatie toepassen met de parameters in dit data frame.
+Om alle scenario's uit te voeren, bouwen we eerst een data frame op met alle combinaties van voorwaarden. Via lapply kunnen we de Monte-Carlo simulatiefunctie toepassen met de parameters in dit data frame.
 
 ```{r include=FALSE}
 params <- expand.grid(
@@ -617,13 +618,14 @@ Voor een "aanvaardbare" p-waarde van 0.055 :
 success.rate(0.055)
 ```
 
-Of we kunnen de invloed bekijken van het type test, voor de verschillende combinaties van de andere parameters. 
+We kunnen bv. ook de invloed bekijken van het type test, voor de verschillende combinaties van de andere parameters. De kolom winner bevat de test met de laagste p-waarde, en de kolom diff_pct het procentueel verschil tov. de kleinste waarde.
+
 
 ```{r echo=FALSE}
 result %>% 
   spread(test.type, p.val) %>% 
   mutate(winner = if_else(pooled < Welch, "pooled","Welch"),
-         diff = round(100 * (Welch - pooled) / if_else(pooled < Welch, Welch, pooled),1)) %>% 
+         diff_pct = round(100 * (Welch - pooled) / if_else(pooled < Welch, pooled, Welch),1)) %>% 
   kable(caption="Invloed van test type onder verschillende scenario's")
 ```
 ## Conclusie
@@ -634,7 +636,7 @@ De Monte-Carlo simulatie is efficiënter
 * wanneer de standaardafwijkingen van beide populaties gelijk zijn
 * wanneer de samples even groot zijn, en voldoende groot
 * voor gelijke standaardafwijkingen tov. verschillende standaardafwijkingen
-* een Welch t-test geeft betere resultaten dan een pooled-variance, zeker wanneer de standaardafwijkingen verschillend zijn
+* een Welch t-test geeft betere resultaten dan een pooled-variance, wanneer de test voorwaarden minder goed voldaan zijn
 
 \pagebreak
 
@@ -1281,14 +1283,9 @@ $$
 \end{aligned}
 $$
 
-Beide formules kunnen herwerkt worden tot
+De laatste formule kan herwerkt worden tot
 
-$$
-\begin{aligned}
-e^{\mu_{N}} &= \mu_{L}e^{-{\frac{\sigma_{N}^2}{2}}} \\
-\mu_{N} &= ln(\mu_{L})-{\frac{\sigma_{N}^2}{2}} \\
-\end{aligned}
-$$
+$$ e^{\mu_{N}} = \mu_{L}e^{-{\frac{\sigma_{N}^2}{2}}}  $$
 
 en
 
@@ -1299,7 +1296,7 @@ Dit laat toe om de parameters van de normale distributie te schrijven in functie
 $$
 \begin{aligned}
 e^{\sigma_{N}^2} &= 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \\
-e^{\mu_{N}} &= \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \\
+e^{\mu_{N}} &= \frac{\mu_{L}}{\sqrt{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}}} \\
 \end{aligned}
 $$
 
@@ -1308,7 +1305,7 @@ en finaal
 $$
 \begin{aligned}
 \sigma_{N} &= \sqrt{ln\left( 1 + \frac{\sigma_{L}^2}{\mu_{L}^2} \right)} \\
-\mu_{N} &= ln\left( \frac{\mu_{L}}{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}} \right) \\
+\mu_{N} &= ln\left( \frac{\mu_{L}}{\sqrt{1 + \frac{\sigma_{L}^2}{\mu_{L}^2}}} \right) \\
 \end{aligned}
 $$
 
@@ -1361,12 +1358,12 @@ Er wordt gevraagd om Monte-Carlo simulaties uit te voeren in een aantal verschil
 * dist (waarden **norm** of **lnorm**) : Data uit een normale/lognormale verdeling 
 * n.total : totaal aantal samples voor steekproef 1 en steekproef 2 samen
 * sample.ratio (default 1) : verhouding van het aantal samples in steekproef 1 tov. steekproef 2, bv.
-  + n.total = 200, sample.ratio = 3 leidt tot 150 samples in steekproef 1 en 50 in steekproef 2
-  + de default waarde leidt tot een gelijk aantal samples
+    + n.total = 200, sample.ratio = 3 leidt tot 150 samples in steekproef 1 en 50 in steekproef 2
+    + de default waarde leidt tot een gelijk aantal samples
 * mu : gemiddelde waarde voor beide steekproeven
 * sd : standaardafwijking voor steekproef 1
 * sd.ratio : verhouding van standaardafwijking voor steekproef 1 tov. die van steekproef 2
-  + sd.ratio = 5 betekent $\sigma_{1} = 1$ en $\sigma_{2} = 1/5$
+    + sd.ratio = 5 betekent $\sigma_{1} = 1$ en $\sigma_{2} = 1/5$
 * test.type (waarden **pooled** of **Welch**) : geeft aan of de t-test gebruik maakt van de "pooled" variantie, of van de Welch benadering voor het aantal vrijheidsgraden.
 * R (default 10000) : aantal Monte-Carlo simulaties in elk scenario
 * alpha (default 0.05) : p-value drempelwaarde
